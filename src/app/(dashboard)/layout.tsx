@@ -2,12 +2,21 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Home, Palette, History, Settings } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { getCurrentUser } from "@/lib/auth/actions";
+import { redirect } from "next/navigation";
 
-export default function DashboardLayout({
+export default async function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Server-side authentication check
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-secondary-50">

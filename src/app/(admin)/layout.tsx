@@ -2,12 +2,25 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Home, Settings, Package, Users, BarChart, FileText, Palette } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import { getCurrentUser } from "@/lib/auth/actions";
+import { redirect } from "next/navigation";
 
-export default function AdminLayout({
+export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  // Server-side authentication and admin check
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  if (user.profile?.role !== 'admin') {
+    redirect('/dashboard');
+  }
+
   return (
     <ProtectedRoute requireAdmin={true}>
       <div className="min-h-screen bg-secondary-50">
