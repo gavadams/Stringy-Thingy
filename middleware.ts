@@ -1,6 +1,7 @@
 import { updateSession } from '@/lib/supabase/middleware'
+import { NextRequest } from 'next/server'
 
-export async function middleware(request: Request) {
+export async function middleware(request: NextRequest) {
   console.log('Middleware triggered for:', request.url)
   return await updateSession(request)
 }
