@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { redeemKitCode } from "@/lib/auth/actions";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import { ArrowLeft, Gift } from "lucide-react";
 import Link from "next/link";
@@ -15,20 +15,66 @@ export default function RedeemCodePage() {
   const [isLoading, setIsLoading] = useState(false);
   const [code, setCode] = useState("");
   const router = useRouter();
+  const supabase = createClient();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      const result = await redeemKitCode(code);
+      // First, get the current user
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
       
-      if (result.error) {
-        toast.error(result.error);
-      } else {
-        toast.success("Kit code redeemed successfully!");
-        router.push("/dashboard");
+      if (authError || !user) {
+        toast.error("You must be logged in to redeem a kit code");
+        return;
       }
+
+      // Check if the kit code exists and is valid
+      const { data: kitCode, error: codeError } = await supabase
+        .from('kit_codes')
+        .select('*')
+        .eq('code', code)
+        .eq('is_active', true)
+        .single();
+
+      if (codeError || !kitCode) {
+        toast.error("Invalid or inactive kit code");
+        return;
+      }
+
+      // Check if the code is already redeemed
+      if (kitCode.redeemed_by) {
+        toast.error("This kit code has already been redeemed");
+        return;
+      }
+
+      // Check if user already has a kit code
+      const { data: existingCode } = await supabase
+        .from('kit_codes')
+        .select('*')
+        .eq('redeemed_by', user.id)
+        .single();
+
+      if (existingCode) {
+        toast.error("You already have a kit code linked to your account");
+        return;
+      }
+
+      // Redeem the kit code
+      const { error: redeemError } = await supabase
+        .from('kit_codes')
+        .update({ redeemed_by: user.id })
+        .eq('id', kitCode.id);
+
+      if (redeemError) {
+        toast.error("Failed to redeem kit code");
+        return;
+      }
+
+      toast.success("Kit code redeemed successfully!");
+      router.push("/dashboard");
+      
     } catch {
       toast.error("An unexpected error occurred");
     } finally {
