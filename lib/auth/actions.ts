@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase/server'
 import { Database } from '@/types/database.types'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
-type KitCode = Database['public']['Tables']['kit_codes']['Row']
 
 export async function signUp(email: string, password: string) {
   const supabase = createClient()
@@ -159,7 +158,7 @@ export async function getUserGenerations() {
   return { data: generations }
 }
 
-export async function createGeneration(settings: any) {
+export async function createGeneration(settings: Record<string, unknown>) {
   const supabase = createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
