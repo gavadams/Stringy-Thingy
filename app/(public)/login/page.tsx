@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { signUp, signIn, redeemKitCode } from "@/lib/auth/actions";
+import { redeemKitCode } from "@/lib/auth/actions";
+import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 function LoginForm() {
@@ -16,22 +17,31 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get('message');
+  const supabase = createClient();
 
   const handleSignIn = async (formData: FormData) => {
     setIsLoading(true);
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const result = await signIn(email, password);
-    
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Successfully signed in!");
-      router.push("/dashboard");
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Successfully signed in!");
+        // Use window.location.href to force a full page reload and update header
+        window.location.href = "/dashboard";
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handleSignUp = async (formData: FormData) => {
@@ -39,15 +49,24 @@ function LoginForm() {
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
 
-    const result = await signUp(email, password);
-    
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Account created! Please check your email to verify your account.");
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
+      
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Account created! Please check your email to verify your account.");
+        // Switch to login tab after successful signup
+        setActiveTab("login");
+      }
+    } catch (error) {
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsLoading(false);
     }
-    
-    setIsLoading(false);
   };
 
   const handleRedeemCode = async (formData: FormData) => {
