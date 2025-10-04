@@ -40,14 +40,26 @@ export default function RedeemCodePage() {
 
       console.log("User authenticated:", user.email);
 
-      // First, let's check if any kit codes exist at all
-      console.log("Checking all kit codes...");
+      // Let's check what tables we can access
+      console.log("Testing different table names...");
       
+      // Try kit_codes
       const { data: allCodes, error: allCodesError } = await supabase
         .from('kit_codes')
         .select('*');
+      console.log("kit_codes table:", { allCodes, allCodesError });
       
-      console.log("All kit codes:", { allCodes, allCodesError });
+      // Try kitcodes (no underscore)
+      const { data: kitCodesNoUnderscore, error: kitCodesNoUnderscoreError } = await supabase
+        .from('kitcodes')
+        .select('*');
+      console.log("kitcodes table:", { kitCodesNoUnderscore, kitCodesNoUnderscoreError });
+      
+      // Try kit_code (singular)
+      const { data: kitCodeSingular, error: kitCodeSingularError } = await supabase
+        .from('kit_code')
+        .select('*');
+      console.log("kit_code table:", { kitCodeSingular, kitCodeSingularError });
       
       if (allCodesError) {
         console.log("RLS Error details:", allCodesError);
