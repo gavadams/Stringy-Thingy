@@ -43,41 +43,49 @@ export default function RedeemCodePage() {
       // First, let's check if any kit codes exist at all
       console.log("Checking all kit codes...");
       
-      const allCodesPromise = supabase
+      const { data: allCodes, error: allCodesError } = await supabase
         .from('kit_codes')
         .select('*');
       
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Query timeout')), 10000)
-      );
-      
-      const { data: allCodes, error: allCodesError } = await Promise.race([
-        allCodesPromise,
-        timeoutPromise
-      ]) as any;
-      
       console.log("All kit codes:", { allCodes, allCodesError });
-
-      // Check if the kit code exists and is valid
-      console.log("Looking for specific code:", code);
-      const { data: kitCode, error: codeError } = await supabase
-        .from('kit_codes')
-        .select('*')
-        .eq('code', code)
-        .eq('is_active', true)
-        .single();
-
-      console.log("Kit code query result:", { kitCode, codeError });
-
-      if (codeError || !kitCode) {
-        console.log("Code error:", codeError);
-        toast.error("Invalid or inactive kit code");
+      
+      if (allCodesError) {
+        console.log("RLS Error details:", allCodesError);
+        toast.error("Database access error: " + allCodesError.message);
         setIsLoading(false);
         return;
       }
 
+      // Check if the kit code exists and is valid
+      console.log("Looking for specific code:", code);
+      
+      // Try without RLS restrictions first
+      const { data: kitCode, error: codeError } = await supabase
+        .from('kit_codes')
+        .select('*')
+        .eq('code', code)
+        .eq('is_active', true);
+      
+      console.log("Kit code search result:", { kitCode, codeError });
+      
+      if (codeError) {
+        console.log("Code search error:", codeError);
+        toast.error("Error searching for kit code: " + codeError.message);
+        setIsLoading(false);
+        return;
+      }
+      
+      if (!kitCode || kitCode.length === 0) {
+        toast.error("Invalid or inactive kit code");
+        setIsLoading(false);
+        return;
+      }
+      
+      const foundKitCode = kitCode[0];
+      console.log("Found kit code:", foundKitCode);
+
       // Check if the code is already redeemed
-      if (kitCode.redeemed_by) {
+      if (foundKitCode.redeemed_by) {
         toast.error("This kit code has already been redeemed");
         setIsLoading(false);
         return;
@@ -102,7 +110,7 @@ export default function RedeemCodePage() {
       const { error: redeemError } = await supabase
         .from('kit_codes')
         .update({ redeemed_by: user.id })
-        .eq('id', kitCode.id);
+        .eq('id', foundKitCode.id);
 
       console.log("Redeem result:", { redeemError });
 
