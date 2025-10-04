@@ -22,13 +22,19 @@ export default function RedeemCodePage() {
     setIsLoading(true);
 
     try {
+      console.log("Starting kit code redemption for:", code);
+      
       // First, get the current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
+        console.log("Auth error:", authError);
         toast.error("You must be logged in to redeem a kit code");
+        setIsLoading(false);
         return;
       }
+
+      console.log("User authenticated:", user.email);
 
       // Check if the kit code exists and is valid
       const { data: kitCode, error: codeError } = await supabase
@@ -38,14 +44,19 @@ export default function RedeemCodePage() {
         .eq('is_active', true)
         .single();
 
+      console.log("Kit code query result:", { kitCode, codeError });
+
       if (codeError || !kitCode) {
+        console.log("Code error:", codeError);
         toast.error("Invalid or inactive kit code");
+        setIsLoading(false);
         return;
       }
 
       // Check if the code is already redeemed
       if (kitCode.redeemed_by) {
         toast.error("This kit code has already been redeemed");
+        setIsLoading(false);
         return;
       }
 
@@ -58,8 +69,11 @@ export default function RedeemCodePage() {
 
       if (existingCode) {
         toast.error("You already have a kit code linked to your account");
+        setIsLoading(false);
         return;
       }
+
+      console.log("Updating kit code with user ID:", user.id);
 
       // Redeem the kit code
       const { error: redeemError } = await supabase
@@ -67,17 +81,24 @@ export default function RedeemCodePage() {
         .update({ redeemed_by: user.id })
         .eq('id', kitCode.id);
 
+      console.log("Redeem result:", { redeemError });
+
       if (redeemError) {
+        console.log("Redeem error:", redeemError);
         toast.error("Failed to redeem kit code");
+        setIsLoading(false);
         return;
       }
 
+      console.log("Kit code redeemed successfully!");
       toast.success("Kit code redeemed successfully!");
       router.push("/dashboard");
       
-    } catch {
+    } catch (error) {
+      console.error("Unexpected error:", error);
       toast.error("An unexpected error occurred");
     } finally {
+      console.log("Setting loading to false");
       setIsLoading(false);
     }
   };
