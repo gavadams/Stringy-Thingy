@@ -24,6 +24,10 @@ export default function RedeemCodePage() {
     try {
       console.log("Starting kit code redemption for:", code);
       
+      // Test Supabase configuration
+      console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
+      console.log("Supabase client:", supabase);
+      
       // Test database connection first
       console.log("Testing database connection...");
       const { data: testData, error: testError } = await supabase
