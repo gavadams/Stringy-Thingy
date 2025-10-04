@@ -1,23 +1,12 @@
-import { NextResponse, type NextRequest } from 'next/server'
+// Middleware temporarily disabled to avoid Edge Runtime issues
+// Authentication is handled by ProtectedRoute components instead
 
-export async function middleware(request: NextRequest) {
-  console.log('Middleware triggered for:', request.url)
-  
-  // Simple middleware - let ProtectedRoute components handle auth logic
-  // This prevents Edge Runtime issues with Supabase calls
-  
-  return NextResponse.next()
-}
+// export async function middleware(request: NextRequest) {
+//   return NextResponse.next()
+// }
 
-export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - api routes (except auth)
-     */
-    '/((?!_next/static|_next/image|favicon.ico|api/health|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-}
+// export const config = {
+//   matcher: [
+//     '/((?!_next/static|_next/image|favicon.ico|api/health|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+//   ],
+// }
