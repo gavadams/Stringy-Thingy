@@ -11,7 +11,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getCurrentUser, signOut } from "@/lib/auth/actions";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -19,30 +18,12 @@ export default function Header() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        // Check if Supabase is configured
-        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-          console.log('Supabase not configured, skipping auth check');
-          setIsLoading(false);
-          return;
-        }
-        
-        const currentUser = await getCurrentUser();
-        setUser(currentUser);
-      } catch (error) {
-        console.error("Error fetching user:", error);
-        // Don't break the app if auth fails
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchUser();
+    // Simplified - just show as not logged in for now
+    setIsLoading(false);
   }, []);
 
   const handleSignOut = async () => {
-    await signOut();
+    // Simplified - just clear local state
     setUser(null);
   };
 

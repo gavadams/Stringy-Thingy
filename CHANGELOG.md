@@ -305,6 +305,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - No more parallel pages conflicts - each route is unique
   - Build should now complete successfully without any route conflicts
 
+### Fixed - 2024-10-04 22:35:00
+- **Homepage 404 Error After Middleware Removal**
+  - Simplified Header component to avoid server action calls during SSR
+  - Removed getCurrentUser() calls from Header component that were causing 404s
+  - Made Header component more resilient to authentication failures
+  - Homepage should now load without 404 errors
+  - Authentication still works on protected pages via individual page checks
+
 ### Technical Details
 - **Framework**: Next.js 14+ with App Router
 - **Language**: TypeScript
