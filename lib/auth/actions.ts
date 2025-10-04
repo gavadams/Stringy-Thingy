@@ -8,7 +8,7 @@ import { Database } from '@/types/database.types'
 type Profile = Database['public']['Tables']['profiles']['Row']
 
 export async function signUp(email: string, password: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signUp({
     email,
@@ -23,7 +23,7 @@ export async function signUp(email: string, password: string) {
 }
 
 export async function signIn(email: string, password: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase.auth.signInWithPassword({
     email,
@@ -38,7 +38,7 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.signOut()
 
@@ -51,7 +51,7 @@ export async function signOut() {
 }
 
 export async function getCurrentUser() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: { user }, error } = await supabase.auth.getUser()
 
@@ -78,7 +78,7 @@ export async function isAdmin() {
 }
 
 export async function redeemKitCode(code: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // First, get the current user
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -130,7 +130,7 @@ export async function redeemKitCode(code: string) {
 }
 
 export async function getUserGenerations() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
@@ -159,7 +159,7 @@ export async function getUserGenerations() {
 }
 
 export async function createGeneration(settings: Record<string, unknown>) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   
