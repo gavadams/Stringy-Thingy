@@ -18,7 +18,7 @@ export default function Header() {
         <div className="flex h-16 items-center justify-between">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2">
-            <span className="text-2xl font-bold bg-gradient-to-r from-brand-primary-600 to-brand-primary-800 bg-clip-text text-transparent">
+            <span className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
               Stringy-Thingy
             </span>
           </Link>
@@ -27,19 +27,19 @@ export default function Header() {
           <nav className="hidden md:flex items-center space-x-6">
             <Link
               href="/"
-              className="text-sm font-medium transition-colors hover:text-brand-primary-600"
+              className="text-sm font-medium transition-colors hover:text-purple-600"
             >
               Home
             </Link>
             <Link
               href="/shop"
-              className="text-sm font-medium transition-colors hover:text-brand-primary-600"
+              className="text-sm font-medium transition-colors hover:text-purple-600"
             >
               Shop
             </Link>
             <Link
               href="/how-it-works"
-              className="text-sm font-medium transition-colors hover:text-brand-primary-600"
+              className="text-sm font-medium transition-colors hover:text-purple-600"
             >
               How It Works
             </Link>
@@ -72,21 +72,21 @@ export default function Header() {
             <nav className="flex flex-col space-y-4 py-4">
               <Link
                 href="/"
-                className="text-sm font-medium transition-colors hover:text-brand-primary-600"
+                className="text-sm font-medium transition-colors hover:text-purple-600"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Home
               </Link>
               <Link
                 href="/shop"
-                className="text-sm font-medium transition-colors hover:text-brand-primary-600"
+                className="text-sm font-medium transition-colors hover:text-purple-600"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 Shop
               </Link>
               <Link
                 href="/how-it-works"
-                className="text-sm font-medium transition-colors hover:text-brand-primary-600"
+                className="text-sm font-medium transition-colors hover:text-purple-600"
                 onClick={() => setIsMobileMenuOpen(false)}
               >
                 How It Works

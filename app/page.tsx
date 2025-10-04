@@ -6,9 +6,9 @@ export default function Home() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="relative py-20 px-4 bg-gradient-to-br from-brand-primary-50 to-brand-primary-100">
+      <section className="relative py-20 px-4 bg-gradient-to-br from-purple-50 to-purple-100">
         <div className="container mx-auto text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-brand-primary-600 to-brand-primary-800 bg-clip-text text-transparent">
+          <h1 className="text-5xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-purple-800 bg-clip-text text-transparent">
             Stringy-Thingy
           </h1>
           <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
@@ -82,7 +82,7 @@ export default function Home() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-20 px-4 bg-brand-secondary-50">
+      <section className="py-20 px-4 bg-slate-50">
         <div className="container mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-6">
             Ready to Start Creating?
