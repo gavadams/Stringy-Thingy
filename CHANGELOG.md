@@ -271,6 +271,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Maintained client-side ProtectedRoute components as backup
   - Ensured secure route protection without middleware Edge Runtime issues
 
+### Fixed - 2024-10-04 22:15:00
+- **Route Group Conflict Resolution**
+  - Fixed parallel pages conflict between (admin) and (dashboard) route groups
+  - Moved admin page to (admin)/admin/page.tsx to avoid path resolution conflict
+  - Created redirect from /admin to /admin/admin for proper routing
+  - Resolved Turbopack build error: "You cannot have two parallel pages that resolve to the same path"
+  - Maintained all authentication protection and route functionality
+
 ### Technical Details
 - **Framework**: Next.js 14+ with App Router
 - **Language**: TypeScript

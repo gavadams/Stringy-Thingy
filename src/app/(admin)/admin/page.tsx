@@ -1,4 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Package, Users, FileText, BarChart, Settings } from "lucide-react";
+import Link from "next/link";
 
 export default function AdminPage() {
   return (
@@ -20,40 +23,40 @@ export default function AdminPage() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-secondary-900">0</div>
-            <p className="text-sm text-secondary-600">+0 this month</p>
+            <p className="text-sm text-secondary-600">No users yet</p>
           </CardContent>
         </Card>
 
         <Card className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
           <CardHeader>
-            <CardTitle className="text-primary-600">Total Orders</CardTitle>
-            <CardDescription>Completed orders</CardDescription>
+            <CardTitle className="text-primary-600">Products</CardTitle>
+            <CardDescription>Available kits</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold text-secondary-900">0</div>
-            <p className="text-sm text-secondary-600">+0 this month</p>
+            <p className="text-sm text-secondary-600">No products yet</p>
           </CardContent>
         </Card>
 
         <Card className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <CardHeader>
-            <CardTitle className="text-primary-600">Revenue</CardTitle>
-            <CardDescription>Total revenue</CardDescription>
+            <CardTitle className="text-primary-600">Orders</CardTitle>
+            <CardDescription>Total orders</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-secondary-900">$0</div>
-            <p className="text-sm text-secondary-600">+$0 this month</p>
+            <div className="text-3xl font-bold text-secondary-900">0</div>
+            <p className="text-sm text-secondary-600">No orders yet</p>
           </CardContent>
         </Card>
 
         <Card className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <CardHeader>
-            <CardTitle className="text-primary-600">Active Designs</CardTitle>
-            <CardDescription>Generated designs</CardDescription>
+            <CardTitle className="text-primary-600">Revenue</CardTitle>
+            <CardDescription>Total earnings</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold text-secondary-900">0</div>
-            <p className="text-sm text-secondary-600">+0 this month</p>
+            <div className="text-3xl font-bold text-secondary-900">$0</div>
+            <p className="text-sm text-secondary-600">No revenue yet</p>
           </CardContent>
         </Card>
       </div>
@@ -61,37 +64,56 @@ export default function AdminPage() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Latest platform activity</CardDescription>
+            <CardTitle>Quick Actions</CardTitle>
+            <CardDescription>Manage your platform</CardDescription>
           </CardHeader>
-          <CardContent>
-            <div className="text-center py-8">
-              <p className="text-secondary-600">
-                No recent activity to display
-              </p>
-            </div>
+          <CardContent className="space-y-4">
+            <Link href="/admin/products">
+              <Button className="w-full">
+                <Package className="mr-2 h-4 w-4" />
+                Manage Products
+              </Button>
+            </Link>
+            <Link href="/admin/orders">
+              <Button variant="outline" className="w-full">
+                <Users className="mr-2 h-4 w-4" />
+                View Orders
+              </Button>
+            </Link>
+            <Link href="/admin/codes">
+              <Button variant="outline" className="w-full">
+                <FileText className="mr-2 h-4 w-4" />
+                Manage Kit Codes
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common admin tasks</CardDescription>
+            <CardTitle>Analytics</CardTitle>
+            <CardDescription>Platform insights</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
-                <span className="text-secondary-700">Manage Products</span>
-                <span className="text-sm text-secondary-500">Coming Soon</span>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary-600">User Growth</span>
+                <span className="font-bold text-secondary-900">0%</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
-                <span className="text-secondary-700">View Orders</span>
-                <span className="text-sm text-secondary-500">Coming Soon</span>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary-600">Conversion Rate</span>
+                <span className="font-bold text-secondary-900">0%</span>
               </div>
-              <div className="flex items-center justify-between p-3 bg-secondary-50 rounded-lg">
-                <span className="text-secondary-700">Analytics</span>
-                <span className="text-sm text-secondary-500">Coming Soon</span>
+              <div className="flex items-center justify-between">
+                <span className="text-secondary-600">Active Users</span>
+                <span className="font-bold text-secondary-900">0</span>
               </div>
+              <Link href="/admin/analytics">
+                <Button variant="outline" className="w-full mt-4">
+                  <BarChart className="mr-2 h-4 w-4" />
+                  View Detailed Analytics
+                </Button>
+              </Link>
             </div>
           </CardContent>
         </Card>
