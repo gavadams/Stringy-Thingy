@@ -7,10 +7,11 @@ import { Menu, X, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/lib/auth/actions";
 import { toast } from "sonner";
+import type { User } from "@supabase/supabase-js";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ email: string | undefined } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
