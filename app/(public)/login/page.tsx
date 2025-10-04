@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,8 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const message = searchParams.get('message');
 
   const handleSignIn = async (formData: FormData) => {
     setIsLoading(true);
@@ -74,6 +76,11 @@ export default function LoginPage() {
           <p className="mt-2 text-sm text-gray-600">
             Sign in to your account or create a new one
           </p>
+          {message && (
+            <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-md">
+              <p className="text-sm text-green-800">{message}</p>
+            </div>
+          )}
         </div>
 
         <Card>
