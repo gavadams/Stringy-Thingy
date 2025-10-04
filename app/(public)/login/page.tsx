@@ -13,7 +13,6 @@ import { toast } from "sonner";
 function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("login");
-  const router = useRouter();
   const searchParams = useSearchParams();
   const message = searchParams.get('message');
   const supabase = createClient();
@@ -24,7 +23,7 @@ function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -36,7 +35,7 @@ function LoginForm() {
         // Use window.location.href to force a full page reload and update header
         window.location.href = "/dashboard";
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);
@@ -49,7 +48,7 @@ function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
       });
@@ -61,7 +60,7 @@ function LoginForm() {
         // Switch to login tab after successful signup
         setActiveTab("login");
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);

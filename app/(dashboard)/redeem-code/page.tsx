@@ -29,7 +29,7 @@ export default function RedeemCodePage() {
         toast.success("Kit code redeemed successfully!");
         router.push("/dashboard");
       }
-    } catch (error) {
+    } catch {
       toast.error("An unexpected error occurred");
     } finally {
       setIsLoading(false);
@@ -86,7 +86,7 @@ export default function RedeemCodePage() {
             </form>
 
             <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-              <h3 className="font-semibold text-blue-900 mb-2">Don't have a kit code?</h3>
+              <h3 className="font-semibold text-blue-900 mb-2">Don&apos;t have a kit code?</h3>
               <p className="text-sm text-blue-800 mb-3">
                 Kit codes come with our physical string art kits. Purchase a kit to get started!
               </p>

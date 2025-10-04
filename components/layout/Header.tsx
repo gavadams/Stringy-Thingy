@@ -5,7 +5,6 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Menu, X, LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { signOut } from "@/lib/auth/actions";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
@@ -79,7 +78,7 @@ export default function Header() {
         setProfile(null);
         router.push('/login?message=You have been signed out successfully');
       }
-    } catch (error) {
+    } catch {
       toast.error("Failed to sign out");
     }
   };
