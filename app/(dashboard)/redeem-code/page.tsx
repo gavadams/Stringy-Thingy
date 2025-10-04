@@ -116,19 +116,26 @@ export default function RedeemCodePage() {
         return;
       }
 
-      console.log("Updating kit code with user ID:", user.id);
+      console.log("Redeeming kit code securely...");
 
-      // Redeem the kit code
-      const { error: redeemError } = await supabase
-        .from('kit_codes')
-        .update({ redeemed_by: user.id })
-        .eq('id', foundKitCode.id);
+      // Use the secure function to redeem the kit code
+      const { data: redeemResult, error: redeemError } = await supabase
+        .rpc('redeem_kit_code_safe', {
+          code_to_redeem: code,
+          user_id: user.id
+        });
 
-      console.log("Redeem result:", { redeemError });
+      console.log("Redeem result:", { redeemResult, redeemError });
 
       if (redeemError) {
         console.log("Redeem error:", redeemError);
-        toast.error("Failed to redeem kit code");
+        toast.error("Failed to redeem kit code: " + redeemError.message);
+        setIsLoading(false);
+        return;
+      }
+
+      if (!redeemResult.success) {
+        toast.error(redeemResult.error);
         setIsLoading(false);
         return;
       }
