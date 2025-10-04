@@ -19,7 +19,8 @@ export async function signUp(email: string, password: string) {
     return { error: error.message }
   }
 
-  return { data }
+  revalidatePath('/', 'layout')
+  redirect('/login?message=Check your email to verify your account')
 }
 
 export async function signIn(email: string, password: string) {
@@ -34,7 +35,8 @@ export async function signIn(email: string, password: string) {
     return { error: error.message }
   }
 
-  return { data }
+  revalidatePath('/', 'layout')
+  redirect('/dashboard')
 }
 
 export async function signOut() {
@@ -47,7 +49,7 @@ export async function signOut() {
   }
 
   revalidatePath('/', 'layout')
-  redirect('/')
+  redirect('/login?message=You have been signed out successfully')
 }
 
 export async function getCurrentUser() {
