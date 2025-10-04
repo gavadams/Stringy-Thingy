@@ -24,6 +24,15 @@ export default function RedeemCodePage() {
     try {
       console.log("Starting kit code redemption for:", code);
       
+      // Test database connection first
+      console.log("Testing database connection...");
+      const { data: testData, error: testError } = await supabase
+        .from('kit_codes')
+        .select('count')
+        .limit(1);
+      
+      console.log("Database test result:", { testData, testError });
+      
       // First, get the current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
@@ -36,7 +45,16 @@ export default function RedeemCodePage() {
 
       console.log("User authenticated:", user.email);
 
+      // First, let's check if any kit codes exist at all
+      console.log("Checking all kit codes...");
+      const { data: allCodes, error: allCodesError } = await supabase
+        .from('kit_codes')
+        .select('*');
+      
+      console.log("All kit codes:", { allCodes, allCodesError });
+
       // Check if the kit code exists and is valid
+      console.log("Looking for specific code:", code);
       const { data: kitCode, error: codeError } = await supabase
         .from('kit_codes')
         .select('*')
