@@ -4,8 +4,6 @@ export default function Home() {
       <h1>Stringy-Thingy</h1>
       <p>Homepage is working!</p>
       <a href="/test">Test Page</a>
-      <a href="/dashboard">Dashboard</a>
-      <a href="/admin">Admin</a>
     </div>
   );
 }
