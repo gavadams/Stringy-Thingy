@@ -57,13 +57,18 @@ export default async function DashboardPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-sm text-muted-foreground mb-4">
               {currentUser.profile?.role === 'admin' ? (
                 <p>Admin account - Full access</p>
               ) : (
                 <p>Customer account - Kit code required</p>
               )}
             </div>
+            {currentUser.profile?.role !== 'admin' && (
+              <Button asChild className="w-full">
+                <Link href="/redeem-code">Redeem Kit Code</Link>
+              </Button>
+            )}
           </CardContent>
         </Card>
       </div>

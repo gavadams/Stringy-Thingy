@@ -7,7 +7,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { redeemKitCode } from "@/lib/auth/actions";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
@@ -69,21 +68,6 @@ function LoginForm() {
     }
   };
 
-  const handleRedeemCode = async (formData: FormData) => {
-    setIsLoading(true);
-    const code = formData.get("code") as string;
-
-    const result = await redeemKitCode(code);
-    
-    if (result.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Kit code redeemed successfully!");
-      router.push("/dashboard");
-    }
-    
-    setIsLoading(false);
-  };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-purple-100 py-12 px-4 sm:px-6 lg:px-8">
@@ -111,10 +95,9 @@ function LoginForm() {
           </CardHeader>
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
+              <TabsList className="grid w-full grid-cols-2">
                 <TabsTrigger value="login">Login</TabsTrigger>
                 <TabsTrigger value="signup">Sign Up</TabsTrigger>
-                <TabsTrigger value="redeem">Redeem Code</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login" className="space-y-4">
@@ -173,29 +156,6 @@ function LoginForm() {
                 </form>
               </TabsContent>
 
-              <TabsContent value="redeem" className="space-y-4">
-                <div className="text-center space-y-2">
-                  <h3 className="text-lg font-semibold">Redeem Kit Code</h3>
-                  <p className="text-sm text-gray-600">
-                    Enter your kit code to link it to your account
-                  </p>
-                </div>
-                <form action={handleRedeemCode} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="kit-code">Kit Code</Label>
-                    <Input
-                      id="kit-code"
-                      name="code"
-                      type="text"
-                      placeholder="Enter your kit code"
-                      required
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? "Redeeming..." : "Redeem Code"}
-                  </Button>
-                </form>
-              </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
