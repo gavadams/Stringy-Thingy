@@ -15,7 +15,7 @@ import { getCurrentUser, signOut } from "@/lib/auth/actions";
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ email: string; profile?: { role: string } } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {

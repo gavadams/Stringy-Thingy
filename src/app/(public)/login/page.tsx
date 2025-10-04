@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { signIn, signUp, redeemKitCode } from "@/lib/auth/actions";
+import { signIn, signUp } from "@/lib/auth/actions";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
@@ -61,7 +61,6 @@ export default function LoginPage() {
 
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
-    const kitCode = formData.get("kitCode") as string;
 
     // First create account
     const signUpResult = await signUp(email, password);

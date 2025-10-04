@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
 export default function HowItWorksPage() {
@@ -39,7 +39,7 @@ export default function HowItWorksPage() {
             </CardHeader>
             <CardContent>
               <p className="text-secondary-600">
-                Get your materials ready. We'll provide you with a detailed 
+                Get your materials ready. We&apos;ll provide you with a detailed 
                 materials list and step-by-step instructions.
               </p>
             </CardContent>
@@ -70,7 +70,7 @@ export default function HowItWorksPage() {
             <AccordionItem value="item-1">
               <AccordionTrigger>What materials do I need?</AccordionTrigger>
               <AccordionContent>
-                You'll need a wooden board, nails, string or thread, and a hammer. 
+                You&apos;ll need a wooden board, nails, string or thread, and a hammer. 
                 We provide detailed material lists for each design.
               </AccordionContent>
             </AccordionItem>

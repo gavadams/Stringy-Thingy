@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Home, Settings, Package, Users, BarChart, FileText, Palette, Shield } from "lucide-react";
+import { Home, Settings, Package, Users, BarChart, FileText, Palette } from "lucide-react";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
 
 export default function AdminLayout({

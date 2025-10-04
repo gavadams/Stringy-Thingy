@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 
 export async function signUp(email: string, password: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.signUp({
     email,
@@ -21,7 +21,7 @@ export async function signUp(email: string, password: string) {
 }
 
 export async function signIn(email: string, password: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.signInWithPassword({
     email,
@@ -37,7 +37,7 @@ export async function signIn(email: string, password: string) {
 }
 
 export async function signOut() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { error } = await supabase.auth.signOut()
 
@@ -50,7 +50,7 @@ export async function signOut() {
 }
 
 export async function redeemKitCode(code: string, userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Check if kit code exists and is active
   const { data: kitCode, error: kitError } = await supabase
@@ -83,7 +83,7 @@ export async function redeemKitCode(code: string, userId: string) {
 }
 
 export async function getCurrentUser() {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const {
     data: { user },
@@ -113,7 +113,7 @@ export async function isAdmin() {
 }
 
 export async function getKitCodes(userId: string) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   const { data, error } = await supabase
     .from('kit_codes')
@@ -130,10 +130,10 @@ export async function getKitCodes(userId: string) {
 export async function createGeneration(
   userId: string,
   kitCodeId: string,
-  settings: any,
+  settings: Record<string, unknown>,
   imageUrl?: string
 ) {
-  const supabase = createClient()
+  const supabase = await createClient()
 
   // Check if user can create generation (kit usage limit)
   const { data: kitCode } = await supabase

@@ -31,7 +31,7 @@ export default function MyGenerationsPage() {
                 <span className="text-secondary-500 text-2xl">🎨</span>
               </div>
               <p className="text-secondary-600 mb-4">
-                You haven't created any string art designs yet.
+                You haven&apos;t created any string art designs yet.
               </p>
               <Button>
                 Create Your First Design
