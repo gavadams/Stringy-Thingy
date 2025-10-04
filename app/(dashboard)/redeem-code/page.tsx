@@ -28,15 +28,6 @@ export default function RedeemCodePage() {
       console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
       console.log("Supabase client:", supabase);
       
-      // Test database connection first
-      console.log("Testing database connection...");
-      const { data: testData, error: testError } = await supabase
-        .from('kit_codes')
-        .select('count')
-        .limit(1);
-      
-      console.log("Database test result:", { testData, testError });
-      
       // First, get the current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
@@ -51,9 +42,19 @@ export default function RedeemCodePage() {
 
       // First, let's check if any kit codes exist at all
       console.log("Checking all kit codes...");
-      const { data: allCodes, error: allCodesError } = await supabase
+      
+      const allCodesPromise = supabase
         .from('kit_codes')
         .select('*');
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Query timeout')), 10000)
+      );
+      
+      const { data: allCodes, error: allCodesError } = await Promise.race([
+        allCodesPromise,
+        timeoutPromise
+      ]) as any;
       
       console.log("All kit codes:", { allCodes, allCodesError });
 
