@@ -10,7 +10,7 @@ import { toast } from "sonner";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState<{ email: string } | null>(null);
+  const [user, setUser] = useState<{ email: string | undefined } | null>(null);
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -107,7 +107,7 @@ export default function Header() {
             ) : user ? (
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-600">
-                  {user.email}
+                  {user.email || 'User'}
                 </span>
                 {profile?.role === 'admin' && (
                   <Button variant="outline" size="sm" asChild>
@@ -175,7 +175,7 @@ export default function Header() {
               {user ? (
                 <div className="flex flex-col space-y-2 pt-4 border-t">
                   <div className="px-3 py-2 text-sm text-gray-600">
-                    {user.email}
+                    {user.email || 'User'}
                   </div>
                   {profile?.role === 'admin' && (
                     <Button variant="ghost" asChild className="justify-start">
