@@ -21,10 +21,18 @@ export default function Header() {
   useEffect(() => {
     const fetchUser = async () => {
       try {
+        // Check if Supabase is configured
+        if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+          console.log('Supabase not configured, skipping auth check');
+          setIsLoading(false);
+          return;
+        }
+        
         const currentUser = await getCurrentUser();
         setUser(currentUser);
       } catch (error) {
         console.error("Error fetching user:", error);
+        // Don't break the app if auth fails
       } finally {
         setIsLoading(false);
       }
