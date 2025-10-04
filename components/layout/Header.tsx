@@ -8,12 +8,14 @@ import { createClient } from "@/lib/supabase/client";
 import { signOut } from "@/lib/auth/actions";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
+import { useRouter } from "next/navigation";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
 
   const supabase = createClient();
 
@@ -51,6 +53,11 @@ export default function Header() {
           setProfile(null);
         }
         setIsLoading(false);
+        
+        // Force a page refresh to ensure state is updated
+        if (event === 'SIGNED_OUT') {
+          window.location.reload();
+        }
       }
     );
 
@@ -62,11 +69,18 @@ export default function Header() {
   };
 
   const handleSignOut = async () => {
-    const result = await signOut();
-    if (result?.error) {
-      toast.error(result.error);
-    } else {
-      toast.success("Signed out successfully");
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        toast.error(error.message);
+      } else {
+        toast.success("Signed out successfully");
+        setUser(null);
+        setProfile(null);
+        router.push('/login?message=You have been signed out successfully');
+      }
+    } catch (error) {
+      toast.error("Failed to sign out");
     }
   };
 
