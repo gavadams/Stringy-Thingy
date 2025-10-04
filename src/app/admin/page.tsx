@@ -1,5 +1,181 @@
-import { redirect } from 'next/navigation'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Package, Users, FileText, BarChart } from "lucide-react";
+import Link from "next/link";
+import { getCurrentUser } from "@/lib/auth/actions";
+import { redirect } from "next/navigation";
 
-export default function AdminRedirect() {
-  redirect('/admin/admin')
+export default async function AdminPage() {
+  // Server-side authentication and admin check
+  const user = await getCurrentUser();
+  
+  if (!user) {
+    redirect('/login');
+  }
+
+  if (user.profile?.role !== 'admin') {
+    redirect('/dashboard');
+  }
+
+  return (
+    <div className="min-h-screen bg-secondary-50">
+      <div className="flex">
+        {/* Sidebar */}
+        <div className="w-64 bg-white shadow-sm border-r min-h-screen">
+          <div className="p-6">
+            <Link href="/" className="flex items-center space-x-2 mb-8">
+              <div className="h-8 w-8 rounded-lg bg-gradient-primary flex items-center justify-center">
+                <span className="text-white font-bold text-sm">ST</span>
+              </div>
+              <span className="text-xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+                Stringy-Thingy
+              </span>
+            </Link>
+            
+            <nav className="space-y-2">
+              <Link href="/admin">
+                <Button variant="ghost" className="w-full justify-start">
+                  Dashboard
+                </Button>
+              </Link>
+              <Link href="/admin/products">
+                <Button variant="ghost" className="w-full justify-start">
+                  <Package className="mr-2 h-4 w-4" />
+                  Products
+                </Button>
+              </Link>
+              <Link href="/admin/orders">
+                <Button variant="ghost" className="w-full justify-start">
+                  <Users className="mr-2 h-4 w-4" />
+                  Orders
+                </Button>
+              </Link>
+              <Link href="/admin/codes">
+                <Button variant="ghost" className="w-full justify-start">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Codes
+                </Button>
+              </Link>
+            </nav>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 p-8">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-secondary-900 mb-2">
+              Admin Dashboard
+            </h1>
+            <p className="text-secondary-600">
+              Manage your Stringy-Thingy platform
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <Card className="animate-slide-up">
+              <CardHeader>
+                <CardTitle className="text-primary-600">Total Users</CardTitle>
+                <CardDescription>Registered users</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-secondary-900">0</div>
+                <p className="text-sm text-secondary-600">No users yet</p>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+              <CardHeader>
+                <CardTitle className="text-primary-600">Products</CardTitle>
+                <CardDescription>Available kits</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-secondary-900">0</div>
+                <p className="text-sm text-secondary-600">No products yet</p>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
+              <CardHeader>
+                <CardTitle className="text-primary-600">Orders</CardTitle>
+                <CardDescription>Total orders</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-secondary-900">0</div>
+                <p className="text-sm text-secondary-600">No orders yet</p>
+              </CardContent>
+            </Card>
+
+            <Card className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
+              <CardHeader>
+                <CardTitle className="text-primary-600">Revenue</CardTitle>
+                <CardDescription>Total earnings</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="text-3xl font-bold text-secondary-900">$0</div>
+                <p className="text-sm text-secondary-600">No revenue yet</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>Manage your platform</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <Link href="/admin/products">
+                  <Button className="w-full">
+                    <Package className="mr-2 h-4 w-4" />
+                    Manage Products
+                  </Button>
+                </Link>
+                <Link href="/admin/orders">
+                  <Button variant="outline" className="w-full">
+                    <Users className="mr-2 h-4 w-4" />
+                    View Orders
+                  </Button>
+                </Link>
+                <Link href="/admin/codes">
+                  <Button variant="outline" className="w-full">
+                    <FileText className="mr-2 h-4 w-4" />
+                    Manage Kit Codes
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Analytics</CardTitle>
+                <CardDescription>Platform insights</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-secondary-600">User Growth</span>
+                    <span className="font-bold text-secondary-900">0%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-secondary-600">Conversion Rate</span>
+                    <span className="font-bold text-secondary-900">0%</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-secondary-600">Active Users</span>
+                    <span className="font-bold text-secondary-900">0</span>
+                  </div>
+                  <Link href="/admin/analytics">
+                    <Button variant="outline" className="w-full mt-4">
+                      <BarChart className="mr-2 h-4 w-4" />
+                      View Detailed Analytics
+                    </Button>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
