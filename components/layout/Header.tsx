@@ -81,7 +81,7 @@ export default function Header() {
     );
 
     return () => subscription.unsubscribe();
-  }, [supabase, clearCart, setUserId, loadUserCart]);
+  }, [supabase, clearCart, setUserId, loadUserCart, clearAnonymousCart]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
