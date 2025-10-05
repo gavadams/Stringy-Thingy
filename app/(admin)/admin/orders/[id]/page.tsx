@@ -382,10 +382,10 @@ export default function OrderDetailPage() {
             <CardContent className="space-y-4">
               {order.notes && order.notes.length > 0 ? (
                 <div className="space-y-3">
-                  {order.notes.map((note: { text: string; added_at: string; added_by: string }, index: number) => (
+                  {order.notes.map((note: { text: string; added_at: string; added_by?: string }, index: number) => (
                     <div key={index} className="p-3 bg-gray-50 rounded-lg">
                       <div className="text-sm text-gray-600 mb-1">
-                        {new Date(note.added_at).toLocaleString()} by {note.added_by}
+                        {new Date(note.added_at).toLocaleString()}{note.added_by ? ` by ${note.added_by}` : ''}
                       </div>
                       <div>{note.text}</div>
                     </div>
