@@ -14,8 +14,8 @@ interface ShopPageProps {
   }>;
 }
 
-async function ProductsGrid() {
-  const { data: products, error } = await getAllProducts();
+async function ProductsGrid({ searchParams }: { searchParams: { type?: string; sort?: string; view?: string; } }) {
+  const { data: allProducts, error } = await getAllProducts();
 
   if (error) {
     return (
@@ -30,7 +30,7 @@ async function ProductsGrid() {
     );
   }
 
-  if (!products || products.length === 0) {
+  if (!allProducts || allProducts.length === 0) {
     return (
       <div className="text-center py-12">
         <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -46,9 +46,52 @@ async function ProductsGrid() {
     );
   }
 
+  // Filter products by type
+  let filteredProducts = allProducts;
+  if (searchParams.type && searchParams.type !== 'all') {
+    filteredProducts = allProducts.filter(product => product.kit_type === searchParams.type);
+  }
+
+  // Sort products
+  if (searchParams.sort) {
+    switch (searchParams.sort) {
+      case 'price-low':
+        filteredProducts = [...filteredProducts].sort((a, b) => a.price - b.price);
+        break;
+      case 'price-high':
+        filteredProducts = [...filteredProducts].sort((a, b) => b.price - a.price);
+        break;
+      case 'newest':
+        filteredProducts = [...filteredProducts].sort((a, b) => 
+          new Date(b.created_at || '').getTime() - new Date(a.created_at || '').getTime()
+        );
+        break;
+      case 'popularity':
+      default:
+        // Keep original order (most popular first based on our seed data)
+        break;
+    }
+  }
+
+  if (filteredProducts.length === 0) {
+    return (
+      <div className="text-center py-12">
+        <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <ShoppingCart className="w-8 h-8 text-gray-400" />
+        </div>
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          No products found
+        </h3>
+        <p className="text-gray-600">
+          Try adjusting your filters to see more products.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-      {products.map((product, index) => (
+      {filteredProducts.map((product, index) => (
         <ProductCard 
           key={product.id} 
           product={product} 
@@ -92,7 +135,7 @@ export default async function ShopPage({ searchParams }: ShopPageProps) {
             </div>
           </div>
         }>
-          <ProductsGrid />
+          <ProductsGrid searchParams={resolvedSearchParams} />
         </Suspense>
       </div>
 
