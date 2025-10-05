@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> } | null; customer_details?: { name?: string | null; phone?: string | null; address?: Record<string, unknown> } | null }) {
+async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> } | null; customer_details?: { name?: string | null; phone?: string | null; address?: Record<string, unknown> | null } | null }) {
   console.log('Processing checkout session completed:', session.id);
   console.log('Session metadata:', session.metadata);
   console.log('Customer email:', session.customer_email);
@@ -99,9 +99,16 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
     : session.payment_intent.id;
 
   try {
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      throw new Error('NEXT_PUBLIC_SUPABASE_URL is not set');
+    }
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('SUPABASE_SERVICE_ROLE_KEY is not set');
+    }
+
     const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.SUPABASE_SERVICE_ROLE_KEY
     );
 
     // Extract order details from session metadata
@@ -115,7 +122,13 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
 
     const productIdArray = productIds.split(',');
     // const kitTypeArray = kitTypes.split(',');
-    const quantityArray = quantities.split(',').map((q: string) => parseInt(q, 10));
+    const quantityArray = quantities.split(',').map((q: string) => {
+      const parsed = parseInt(q, 10);
+      if (isNaN(parsed) || parsed <= 0) {
+        throw new Error(`Invalid quantity: ${q}`);
+      }
+      return parsed;
+    });
 
     // Get product details from database
     const { data: products, error: productsError } = await supabase
@@ -127,8 +140,11 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
       throw new Error(`Failed to fetch products: ${productsError.message}`);
     }
 
-    if (!products || products.length !== productIdArray.length) {
-      throw new Error('Some products not found');
+    if (!products || products.length === 0) {
+      throw new Error('No products found');
+    }
+    if (products.length !== productIdArray.length) {
+      throw new Error(`Expected ${productIdArray.length} products, found ${products.length}`);
     }
 
     // Calculate total
@@ -148,7 +164,7 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
         customer_name: session.customer_details?.name ?? null,
         phone: session.customer_details?.phone ?? null,
         shipping_address: session.shipping_details?.address || null,
-        billing_address: session.customer_details?.address || null,
+        billing_address: session.customer_details?.address ?? null,
         order_items: products.map((product, index) => ({
           id: product.id,
           name: product.name,
