@@ -16,10 +16,13 @@ import {
   Minus, 
   Trash2, 
   ShoppingBag,
-  ArrowRight
+  ArrowRight,
+  Loader2
 } from "lucide-react";
 import { useCartStore } from "@/lib/cart/store";
 import Link from "next/link";
+import { useState } from "react";
+import { toast } from "sonner";
 
 export default function Cart() {
   const { 
@@ -32,6 +35,10 @@ export default function Cart() {
     getTotal, 
     getItemCount 
   } = useCartStore();
+
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [customerEmail, setCustomerEmail] = useState('');
+  const [showEmailInput, setShowEmailInput] = useState(false);
 
   const total = getTotal();
   const itemCount = getItemCount();
@@ -51,10 +58,74 @@ export default function Cart() {
     }
   };
 
-  const handleCheckout = () => {
-    // TODO: Implement checkout flow
-    console.log('Proceeding to checkout...');
-    closeCart();
+  const handleCheckout = async () => {
+    if (items.length === 0) {
+      toast.error('Your cart is empty');
+      return;
+    }
+
+    // Check if user is logged in
+    const { data: { user } } = await import('@/lib/supabase/client').then(m => m.createClient().auth.getUser());
+    
+    if (!user) {
+      // Show email input for guest checkout
+      setShowEmailInput(true);
+      return;
+    }
+
+    await proceedToCheckout(user.email || '');
+  };
+
+  const proceedToCheckout = async (email: string) => {
+    try {
+      setIsCheckingOut(true);
+      
+      // Prepare cart items for checkout
+      const checkoutItems = items.map(item => ({
+        id: item.id,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        kit_type: item.kit_type,
+        images: item.images,
+      }));
+
+      // Create checkout session
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items: checkoutItems,
+          customerEmail: email,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+
+      // Redirect to Stripe Checkout
+      window.location.href = data.url;
+    } catch (error) {
+      console.error('Checkout error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to proceed to checkout');
+    } finally {
+      setIsCheckingOut(false);
+    }
+  };
+
+  const handleEmailSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!customerEmail.trim()) {
+      toast.error('Please enter your email address');
+      return;
+    }
+    
+    await proceedToCheckout(customerEmail.trim());
   };
 
   const handleOpenChange = (open: boolean) => {
@@ -194,10 +265,20 @@ export default function Cart() {
               <div className="space-y-2">
                 <Button 
                   onClick={handleCheckout}
+                  disabled={isCheckingOut}
                   className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
                 >
-                  Proceed to Checkout
-                  <ArrowRight className="w-4 h-4 ml-2" />
+                  {isCheckingOut ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Proceed to Checkout
+                      <ArrowRight className="w-4 h-4 ml-2" />
+                    </>
+                  )}
                 </Button>
                 
                 <div className="flex gap-2">
@@ -225,6 +306,58 @@ export default function Cart() {
           </>
         )}
       </DialogContent>
+
+      {/* Email Input Modal for Guest Checkout */}
+      <Dialog open={showEmailInput} onOpenChange={setShowEmailInput}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Enter Your Email</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleEmailSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                Email Address
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={customerEmail}
+                onChange={(e) => setCustomerEmail(e.target.value)}
+                placeholder="your@email.com"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                required
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                We&apos;ll send your kit codes to this email address
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowEmailInput(false)}
+                className="flex-1"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={isCheckingOut}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              >
+                {isCheckingOut ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Processing...
+                  </>
+                ) : (
+                  'Continue to Checkout'
+                )}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 }
