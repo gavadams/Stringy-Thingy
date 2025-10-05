@@ -165,7 +165,7 @@ export const useCartStore = create<CartStore>()(
             // Merge current cart with saved cart
             const mergedItems = [...currentItems];
             
-            savedItems.forEach((savedItem: any) => {
+            savedItems.forEach((savedItem: CartItem) => {
               const existingItem = mergedItems.find(item => item.id === savedItem.id);
               if (existingItem) {
                 // If item exists in both carts, add quantities
