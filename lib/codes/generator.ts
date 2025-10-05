@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 const CHARACTERS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
 const CODE_LENGTH = 4; // ART-XXXX format
@@ -18,7 +18,10 @@ function generateRandomCode(): string {
  * Check if a code already exists in the database
  */
 async function codeExists(code: string): Promise<boolean> {
-  const supabase = createClient();
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
   const { data, error } = await supabase
     .from('kit_codes')
     .select('code')
@@ -95,7 +98,10 @@ export async function generateKitCodes(
     }
 
     // Insert all codes into database
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
     const kitCodeRecords = codes.map(code => ({
       code,
       kit_type: kitType,
