@@ -124,11 +124,15 @@ export const useCartStore = create<CartStore>()(
       },
 
       openCart: () => {
+        console.log('Opening cart, current state:', { isOpen: get().isOpen, items: get().items.length });
         set({ isOpen: true });
+        console.log('Cart opened, new state:', { isOpen: get().isOpen });
       },
 
       closeCart: () => {
+        console.log('Closing cart, current state:', { isOpen: get().isOpen });
         set({ isOpen: false });
+        console.log('Cart closed, new state:', { isOpen: get().isOpen });
       },
 
       getTotal: () => {

@@ -36,6 +36,8 @@ export default function Cart() {
   const total = getTotal();
   const itemCount = getItemCount();
 
+  console.log('Cart component render:', { isOpen, items: items.length, itemCount });
+
   const handleQuantityChange = (productId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
       removeItem(productId);
@@ -50,8 +52,15 @@ export default function Cart() {
     closeCart();
   };
 
+  const handleOpenChange = (open: boolean) => {
+    console.log('Dialog onOpenChange:', { open, currentIsOpen: isOpen });
+    if (!open) {
+      closeCart();
+    }
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={closeCart}>
+    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
