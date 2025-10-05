@@ -2,11 +2,10 @@
 
 import { motion } from "framer-motion";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Plus, Minus } from "lucide-react";
 
 const faqs = [
   {
-    question: "What's included in the kit?",
+    question: "What&apos;s included in the kit?",
     answer: "Each kit includes a pre-cut wooden frame, numbered pegs and notches, premium cotton string, access to our online pattern generator, step-by-step digital instructions, and a finishing kit. Premium kits also include extra string colors and display stands."
   },
   {
@@ -107,7 +106,7 @@ export default function FAQ() {
               Still have questions?
             </h3>
             <p className="text-gray-600 mb-6">
-              Our support team is here to help! Get in touch and we'll get back to you within 24 hours.
+              Our support team is here to help! Get in touch and we&apos;ll get back to you within 24 hours.
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <motion.a

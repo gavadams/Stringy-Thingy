@@ -102,7 +102,7 @@ export default function CTA() {
             className="text-lg sm:text-xl text-white/90 mb-8 max-w-2xl mx-auto leading-relaxed"
           >
             Join hundreds of satisfied customers and transform your favorite photos 
-            into stunning string art. No experience needed - we'll guide you every step of the way.
+            into stunning string art. No experience needed - we&apos;ll guide you every step of the way.
           </motion.p>
 
           {/* CTA Buttons */}

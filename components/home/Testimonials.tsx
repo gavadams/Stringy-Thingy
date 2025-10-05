@@ -90,7 +90,7 @@ export default function Testimonials() {
 
                 {/* Testimonial Text */}
                 <blockquote className="text-gray-700 mb-6 leading-relaxed">
-                  "{testimonial.text}"
+                  &ldquo;{testimonial.text}&rdquo;
                 </blockquote>
 
                 {/* Customer Info */}

@@ -3,7 +3,6 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { X, Eye } from "lucide-react";
-import Image from "next/image";
 
 const galleryItems = [
   {
@@ -83,7 +82,7 @@ const galleryItems = [
 export default function Gallery() {
   const [selectedItem, setSelectedItem] = useState<typeof galleryItems[0] | null>(null);
 
-  const getGridClass = (aspectRatio: string, index: number) => {
+  const getGridClass = (aspectRatio: string) => {
     if (aspectRatio === "landscape") return "md:col-span-2";
     if (aspectRatio === "portrait") return "md:row-span-2";
     return "md:col-span-1";
@@ -118,7 +117,7 @@ export default function Gallery() {
               whileInView={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.6, delay: index * 0.1 }}
               viewport={{ once: true }}
-              className={`group relative cursor-pointer ${getGridClass(item.aspectRatio, index)}`}
+              className={`group relative cursor-pointer ${getGridClass(item.aspectRatio)}`}
               onClick={() => setSelectedItem(item)}
             >
               {/* Image Container */}
