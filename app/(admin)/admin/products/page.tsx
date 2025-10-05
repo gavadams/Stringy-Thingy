@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +30,7 @@ import {
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Database } from "@/types/database.types";
 
 function ProductsTable({ 
   searchTerm, 
@@ -40,7 +41,7 @@ function ProductsTable({
   statusFilter: string; 
   typeFilter: string; 
 }) {
-  const [products, setProducts] = useState<any[]>([]);
+  const [products, setProducts] = useState<Database['public']['Tables']['products']['Row'][]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
