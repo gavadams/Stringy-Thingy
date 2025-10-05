@@ -125,7 +125,7 @@ export default function Cart() {
                       </p>
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-gray-900">
-                          £{item.product.price}
+                          £{item.product.price.toFixed(2)}
                         </span>
                         <div className="flex items-center gap-2">
                           {/* Quantity Controls */}
