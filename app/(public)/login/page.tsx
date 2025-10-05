@@ -162,9 +162,9 @@ function LoginForm() {
         <div className="text-center">
           <p className="text-sm text-gray-600">
             Don&apos;t have a kit code?{" "}
-            <a href="/shop" className="text-purple-600 hover:text-purple-500">
+            <Link href="/shop" className="text-purple-600 hover:text-purple-500">
               Browse our kits
-            </a>
+            </Link>
           </p>
         </div>
       </div>

@@ -15,8 +15,7 @@ export interface UploadProgress {
 export async function uploadImage(
   file: File,
   bucket: string = 'product-images',
-  folder?: string,
-  onProgress?: (progress: UploadProgress) => void
+  folder?: string
 ): Promise<UploadResult> {
   try {
     const supabase = createClient();
@@ -29,7 +28,7 @@ export async function uploadImage(
     const filePath = folder ? `${folder}/${fileName}` : fileName;
 
     // Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from(bucket)
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -65,11 +64,10 @@ export async function uploadImage(
 export async function uploadMultipleImages(
   files: File[],
   bucket: string = 'product-images',
-  folder?: string,
-  onProgress?: (progress: UploadProgress) => void
+  folder?: string
 ): Promise<{ success: boolean; urls: string[]; errors: string[] }> {
   const results = await Promise.allSettled(
-    files.map(file => uploadImage(file, bucket, folder, onProgress))
+    files.map(file => uploadImage(file, bucket, folder))
   );
 
   const urls: string[] = [];

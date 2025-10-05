@@ -121,7 +121,7 @@ export default function EditProductPage({ params }: EditProductPageProps) {
         images: formData.images
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('products')
         .update(productData)
         .eq('id', productId)

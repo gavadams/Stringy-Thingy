@@ -64,7 +64,7 @@ export default function NewProductPage() {
         images: formData.images
       };
 
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('products')
         .insert(productData)
         .select()

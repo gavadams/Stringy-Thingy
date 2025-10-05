@@ -13,7 +13,6 @@ import {
 import { 
   Card, 
   CardContent, 
-  CardDescription, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
@@ -22,7 +21,6 @@ import {
   Edit, 
   Trash2, 
   Eye, 
-  EyeOff, 
   Package,
   Search,
   Filter
