@@ -54,7 +54,7 @@ export default function Cart() {
   return (
     <Dialog open={isOpen} onOpenChange={closeCart}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="flex flex-row items-center justify-between">
+        <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ShoppingCart className="w-5 h-5" />
             Shopping Cart
@@ -64,14 +64,6 @@ export default function Cart() {
               </Badge>
             )}
           </DialogTitle>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={closeCart}
-            className="h-6 w-6"
-          >
-            <X className="h-4 w-4" />
-          </Button>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto">
