@@ -34,7 +34,7 @@ export default function Header() {
     });
     
     return unsubscribe;
-  }, []);
+  }, [getItemCount]);
 
   useEffect(() => {
     let hasLoadedCart = false; // Flag to prevent duplicate cart loading

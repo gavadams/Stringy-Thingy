@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -41,9 +41,9 @@ export default function OrderDetailPage() {
     if (orderId) {
       fetchOrder();
     }
-  }, [orderId]);
+  }, [orderId, fetchOrder]);
 
-  const fetchOrder = async () => {
+  const fetchOrder = useCallback(async () => {
     try {
       setLoading(true);
       const supabase = createClient();
@@ -65,7 +65,7 @@ export default function OrderDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [orderId]);
 
   const updateOrderStatus = async (newStatus: string) => {
     try {
@@ -81,7 +81,7 @@ export default function OrderDetailPage() {
         return;
       }
 
-      setOrder(prev => prev ? { ...prev, status: newStatus } : null);
+      setOrder(prev => prev ? { ...prev, status: newStatus as Order['status'] } : null);
       toast.success('Order status updated');
     } catch {
       toast.error('Failed to update status');
