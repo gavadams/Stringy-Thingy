@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | null; shipping_details?: { address: Record<string, unknown> }; customer_details?: { address: Record<string, unknown> } }) {
+async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> }; customer_details?: { address: Record<string, unknown> } }) {
   console.log('Processing checkout session completed:', session.id);
   console.log('Session metadata:', session.metadata);
   console.log('Customer email:', session.customer_email);
@@ -92,6 +92,11 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
     console.error('No payment intent found in session');
     throw new Error('Payment intent is required');
   }
+
+  // Extract payment intent ID (could be string or object)
+  const paymentIntentId = typeof session.payment_intent === 'string' 
+    ? session.payment_intent 
+    : session.payment_intent.id;
 
       try {
         const supabase = createClient(
@@ -137,7 +142,7 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
       .insert({
         email: session.customer_email,
         stripe_session_id: session.id,
-        stripe_payment_intent_id: session.payment_intent,
+        stripe_payment_intent_id: paymentIntentId,
         total_amount: total,
         status: 'paid',
         customer_name: session.customer_details?.name || null,
