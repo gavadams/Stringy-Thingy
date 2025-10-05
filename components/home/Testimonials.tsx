@@ -58,7 +58,7 @@ export default function Testimonials() {
             What Our Customers Say
           </h2>
           <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-            Don't just take our word for it. Here's what our happy customers have to say 
+            Don&apos;t just take our word for it. Here&apos;s what our happy customers have to say 
             about their Stringy-Thingy experience.
           </p>
         </motion.div>

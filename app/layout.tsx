@@ -11,6 +11,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://stringy-thingy.com"),
   title: "Stringy-Thingy - Transform Your Photos Into Stunning String Art",
   description: "Create beautiful, personalized wall art with our complete DIY string art kits. Upload your photo, follow our custom instructions, and make something truly unique. Perfect for beginners and experienced crafters.",
   keywords: [
