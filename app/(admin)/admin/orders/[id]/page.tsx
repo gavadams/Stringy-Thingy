@@ -24,7 +24,25 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Database } from "@/types/database.types";
 
-type Order = Database['public']['Tables']['orders']['Row'];
+type Order = Database['public']['Tables']['orders']['Row'] & {
+  notes?: Array<{
+    text: string;
+    added_at: string;
+    added_by?: string;
+  }>;
+  customer_name?: string;
+  phone?: string;
+  shipping_address?: any;
+  billing_address?: any;
+  order_items?: Array<{
+    id: string;
+    name: string;
+    kit_type: string;
+    quantity: number;
+    price: number;
+    image?: string;
+  }>;
+};
 
 export default function OrderDetailPage() {
   const params = useParams();
