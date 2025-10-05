@@ -40,7 +40,7 @@ async function ProductsTable() {
     return (
       <div className="text-center py-12">
         <div className="text-red-600 mb-4">
-          Error loading products: {error}
+          Error loading products: {error.message}
         </div>
         <Button onClick={() => window.location.reload()}>
           Try Again
