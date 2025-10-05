@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getAllProducts } from "@/lib/products/queries";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { 
@@ -30,7 +30,11 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 async function ProductsTable() {
-  const { data: products, error } = await getAllProducts();
+  const supabase = createClient();
+  const { data: products, error } = await supabase
+    .from('products')
+    .select('*')
+    .order('created_at', { ascending: false });
 
   if (error) {
     return (
