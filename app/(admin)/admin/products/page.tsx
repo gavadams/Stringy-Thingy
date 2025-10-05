@@ -27,6 +27,17 @@ import {
   Search,
   Filter
 } from "lucide-react";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -44,6 +55,7 @@ function ProductsTable({
   const [products, setProducts] = useState<Database['public']['Tables']['products']['Row'][]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -79,6 +91,33 @@ function ProductsTable({
 
     fetchProducts();
   }, []);
+
+  const handleDeleteProduct = async (productId: string) => {
+    try {
+      setDeletingId(productId);
+      const supabase = createClient();
+      
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
+
+      if (error) {
+        console.error('Error deleting product:', error);
+        alert('Failed to delete product: ' + error.message);
+        return;
+      }
+
+      // Remove the product from local state
+      setProducts(prev => prev.filter(p => p.id !== productId));
+      console.log('Product deleted successfully');
+    } catch (err) {
+      console.error('Exception deleting product:', err);
+      alert('Failed to delete product');
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   // Filter products based on search and filter criteria
   const filteredProducts = products.filter(product => {
@@ -224,9 +263,37 @@ function ProductsTable({
                         <Edit className="w-4 h-4" />
                       </Link>
                     </Button>
-                    <Button variant="ghost" size="sm" className="text-red-600 hover:text-red-700">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-red-600 hover:text-red-700"
+                          disabled={deletingId === product.id}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Product</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{product.name}"? This action cannot be undone.
+                            This will permanently remove the product from your catalog.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => handleDeleteProduct(product.id)}
+                            className="bg-red-600 hover:bg-red-700"
+                            disabled={deletingId === product.id}
+                          >
+                            {deletingId === product.id ? 'Deleting...' : 'Delete Product'}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </TableCell>
               </TableRow>
