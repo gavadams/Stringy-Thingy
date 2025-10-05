@@ -24,6 +24,7 @@ interface ProductDetailProps {
 export default function ProductDetail({ product }: ProductDetailProps) {
   const [quantity, setQuantity] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const { addItem, getItemQuantity, openCart } = useCartStore();
   
   const cartQuantity = getItemQuantity(product.id);
@@ -90,17 +91,63 @@ export default function ProductDetail({ product }: ProductDetailProps) {
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
-      {/* Product Image */}
+      {/* Product Images */}
       <div className="space-y-4">
-        <div className="aspect-square bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl flex items-center justify-center relative overflow-hidden">
-          <div className="text-center">
-            <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full flex items-center justify-center">
-              <ShoppingCart className="w-12 h-12 text-purple-600" />
+        {/* Main Image */}
+        <div className="aspect-square bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl relative overflow-hidden">
+          {product.images && product.images.length > 0 ? (
+            <img
+              src={product.images[selectedImageIndex]}
+              alt={`${product.name} - Image ${selectedImageIndex + 1}`}
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                console.error('Product image failed to load:', product.images[selectedImageIndex]);
+                // Fallback to placeholder
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          
+          {/* Fallback placeholder */}
+          <div className={`absolute inset-0 flex items-center justify-center ${product.images && product.images.length > 0 ? 'hidden' : ''}`}>
+            <div className="text-center">
+              <div className="w-24 h-24 mx-auto mb-4 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full flex items-center justify-center">
+                <ShoppingCart className="w-12 h-12 text-purple-600" />
+              </div>
+              <p className="text-gray-600 font-medium text-lg">{product.name}</p>
+              <p className="text-sm text-gray-500">{product.kit_type}</p>
             </div>
-            <p className="text-gray-600 font-medium text-lg">{product.name}</p>
-            <p className="text-sm text-gray-500">{product.kit_type}</p>
           </div>
         </div>
+
+        {/* Image Thumbnails */}
+        {product.images && product.images.length > 1 && (
+          <div className="grid grid-cols-4 gap-2">
+            {product.images.map((image, index) => (
+              <button
+                key={index}
+                onClick={() => setSelectedImageIndex(index)}
+                className={`aspect-square rounded-lg overflow-hidden border-2 transition-all ${
+                  selectedImageIndex === index 
+                    ? 'border-purple-600 ring-2 ring-purple-200' 
+                    : 'border-gray-200 hover:border-gray-300'
+                }`}
+              >
+                <img
+                  src={image}
+                  alt={`${product.name} - Thumbnail ${index + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    console.error('Thumbnail image failed to load:', image);
+                    // Hide broken thumbnail
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Product Info */}
