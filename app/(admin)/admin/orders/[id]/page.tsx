@@ -313,7 +313,7 @@ export default function OrderDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {order.products?.map((product: { name: string; kit_type: string; quantity: number; price: number }, index: number) => (
+                {order.order_items?.map((product: { name: string; kit_type: string; quantity: number; price: number }, index: number) => (
                   <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                     <div>
                       <div className="font-medium">{product.name}</div>
