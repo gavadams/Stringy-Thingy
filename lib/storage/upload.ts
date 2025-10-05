@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/client';
+import { getSignedUrl } from './signed-urls';
 
 export interface UploadResult {
   success: boolean;
@@ -43,14 +44,30 @@ export async function uploadImage(
       };
     }
 
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(filePath);
+    // Get URL based on bucket type
+    let url: string;
+    
+    if (bucket === 'product-images') {
+      // Public bucket - use public URL
+      const { data: urlData } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+      url = urlData.publicUrl;
+    } else {
+      // Private bucket - use signed URL
+      const signedResult = await getSignedUrl(bucket, filePath);
+      if (!signedResult.success) {
+        return {
+          success: false,
+          error: signedResult.error
+        };
+      }
+      url = signedResult.url!;
+    }
 
     return {
       success: true,
-      url: urlData.publicUrl
+      url
     };
   } catch (error) {
     console.error('Upload error:', error);
