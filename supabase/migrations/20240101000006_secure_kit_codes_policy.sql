@@ -1,8 +1,16 @@
 -- Secure RLS policies for kit_codes table
 -- This ensures security while allowing necessary operations
 
--- Drop the overly permissive policy
-DROP POLICY "Kit codes viewable for redemption" ON kit_codes;
+-- Enable RLS on kit_codes table
+ALTER TABLE kit_codes ENABLE ROW LEVEL SECURITY;
+
+-- Drop all existing policies (if they exist)
+DROP POLICY IF EXISTS "Kit codes viewable for redemption" ON kit_codes;
+DROP POLICY IF EXISTS "Kit codes viewable by owner or admin" ON kit_codes;
+DROP POLICY IF EXISTS "Secure kit codes view policy" ON kit_codes;
+DROP POLICY IF EXISTS "Secure kit codes update policy" ON kit_codes;
+DROP POLICY IF EXISTS "Only admins can create kit codes" ON kit_codes;
+DROP POLICY IF EXISTS "Only admins can delete kit codes" ON kit_codes;
 
 -- Create secure policies for kit_codes
 
