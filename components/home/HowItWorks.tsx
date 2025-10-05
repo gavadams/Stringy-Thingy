@@ -67,7 +67,7 @@ export default function HowItWorks() {
               className="group relative"
             >
               {/* Card */}
-              <div className="relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 group-hover:border-purple-200">
+              <div className="relative bg-white rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-100 group-hover:border-purple-200 h-full flex flex-col">
                 {/* Number Badge */}
                 <div className="absolute -top-4 -left-4 w-12 h-12 bg-gradient-to-r from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-lg">
                   {step.number}
@@ -86,7 +86,7 @@ export default function HowItWorks() {
                 <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">
                   {step.title}
                 </h3>
-                <p className="text-gray-600 text-center leading-relaxed">
+                <p className="text-gray-600 text-center leading-relaxed flex-grow">
                   {step.description}
                 </p>
 
