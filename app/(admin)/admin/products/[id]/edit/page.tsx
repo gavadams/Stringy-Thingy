@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { ArrowLeft, Save, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { getProductById, updateProduct, deleteProduct } from "@/lib/products/queries";
+import { createClient } from "@/lib/supabase/client";
 import ImageUpload from "@/components/admin/ImageUpload";
 import Link from "next/link";
 
@@ -54,7 +54,12 @@ export default function EditProductPage({ params }: EditProductPageProps) {
       setProductId(resolvedParams.id);
       
       try {
-        const { data: product, error } = await getProductById(resolvedParams.id);
+        const supabase = createClient();
+        const { data: product, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('id', resolvedParams.id)
+          .single();
         
         if (error || !product) {
           toast.error("Product not found");
@@ -102,6 +107,7 @@ export default function EditProductPage({ params }: EditProductPageProps) {
     setIsLoading(true);
 
     try {
+      const supabase = createClient();
       const productData = {
         name: formData.name,
         description: formData.description,
@@ -115,10 +121,15 @@ export default function EditProductPage({ params }: EditProductPageProps) {
         images: formData.images
       };
 
-      const { data, error } = await updateProduct(productId, productData);
+      const { data, error } = await supabase
+        .from('products')
+        .update(productData)
+        .eq('id', productId)
+        .select()
+        .single();
 
       if (error) {
-        toast.error("Failed to update product: " + error);
+        toast.error("Failed to update product: " + error.message);
         return;
       }
 
@@ -136,10 +147,14 @@ export default function EditProductPage({ params }: EditProductPageProps) {
     setIsDeleting(true);
 
     try {
-      const { success, error } = await deleteProduct(productId);
+      const supabase = createClient();
+      const { error } = await supabase
+        .from('products')
+        .delete()
+        .eq('id', productId);
 
-      if (!success) {
-        toast.error("Failed to delete product: " + error);
+      if (error) {
+        toast.error("Failed to delete product: " + error.message);
         return;
       }
 
@@ -308,7 +323,7 @@ export default function EditProductPage({ params }: EditProductPageProps) {
                   id="frame_size"
                   value={formData.frame_size}
                   onChange={(e) => handleInputChange("frame_size", e.target.value)}
-                  placeholder="12\" (30cm)"
+                  placeholder='12" (30cm)'
                   required
                 />
               </div>

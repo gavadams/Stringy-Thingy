@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, Save } from "lucide-react";
 import { toast } from "sonner";
-import { createProduct } from "@/lib/products/queries";
+import { createClient } from "@/lib/supabase/client";
 import ImageUpload from "@/components/admin/ImageUpload";
 import Link from "next/link";
 
@@ -50,6 +50,7 @@ export default function NewProductPage() {
     setIsLoading(true);
 
     try {
+      const supabase = createClient();
       const productData = {
         name: formData.name,
         description: formData.description,
@@ -63,10 +64,14 @@ export default function NewProductPage() {
         images: formData.images
       };
 
-      const { data, error } = await createProduct(productData);
+      const { data, error } = await supabase
+        .from('products')
+        .insert(productData)
+        .select()
+        .single();
 
       if (error) {
-        toast.error("Failed to create product: " + error);
+        toast.error("Failed to create product: " + error.message);
         return;
       }
 
@@ -226,7 +231,7 @@ export default function NewProductPage() {
                   id="frame_size"
                   value={formData.frame_size}
                   onChange={(e) => handleInputChange("frame_size", e.target.value)}
-                  placeholder="12\" (30cm)"
+                  placeholder='12" (30cm)'
                   required
                 />
               </div>
