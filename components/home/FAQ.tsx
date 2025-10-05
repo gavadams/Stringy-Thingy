@@ -22,11 +22,11 @@ const faqs = [
   },
   {
     question: "What if I make a mistake?",
-    answer: "Don't worry! Our kits include extra string, and you can always undo and redo sections. The numbered pegs make it easy to follow the pattern, and our digital instructions include troubleshooting tips for common issues."
+    answer: "Don&apos;t worry! Our kits include extra string, and you can always undo and redo sections. The numbered pegs make it easy to follow the pattern, and our digital instructions include troubleshooting tips for common issues."
   },
   {
     question: "Can I order custom frame sizes?",
-    answer: "Currently, we offer three standard sizes (10\", 12\", and 16\"). Custom sizes may be available for bulk orders. Contact our support team for special requests and we'll do our best to accommodate your needs."
+    answer: "Currently, we offer three standard sizes (10\", 12\", and 16\"). Custom sizes may be available for bulk orders. Contact our support team for special requests and we&apos;ll do our best to accommodate your needs."
   },
   {
     question: "Do you ship internationally?",
@@ -34,15 +34,15 @@ const faqs = [
   },
   {
     question: "How do I get my instructions?",
-    answer: "Instructions are delivered digitally via email after purchase. You'll receive a link to access your personalized pattern generator and step-by-step guide. The instructions are also available in your account dashboard for easy access anytime."
+    answer: "Instructions are delivered digitally via email after purchase. You&apos;ll receive a link to access your personalized pattern generator and step-by-step guide. The instructions are also available in your account dashboard for easy access anytime."
   },
   {
     question: "Is this suitable for beginners?",
     answer: "Absolutely! Our kits are designed for all skill levels. The numbered pegs and clear instructions make it easy for beginners, while the detailed patterns provide a satisfying challenge for experienced crafters. No prior experience needed!"
   },
   {
-    question: "What if I'm not satisfied with my purchase?",
-    answer: "We offer a 30-day money-back guarantee. If you're not completely satisfied with your kit, contact our support team and we'll provide a full refund or replacement. We want you to love your Stringy-Thingy experience!"
+    question: "What if I&apos;m not satisfied with my purchase?",
+    answer: "We offer a 30-day money-back guarantee. If you&apos;re not completely satisfied with your kit, contact our support team and we&apos;ll provide a full refund or replacement. We want you to love your Stringy-Thingy experience!"
   }
 ];
 
