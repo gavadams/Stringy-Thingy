@@ -96,20 +96,31 @@ export default function Header() {
   };
 
   const handleSignOut = async () => {
+    console.log('Logout button clicked');
+    console.log('User state:', { user: !!user, profile: !!profile, isLoading });
     try {
       const { error } = await supabase.auth.signOut();
       if (error) {
+        console.error('Logout error:', error);
         toast.error(error.message);
       } else {
+        console.log('Logout successful');
         toast.success("Signed out successfully");
         setUser(null);
         setProfile(null);
         clearCart(); // Clear cart on logout
         router.push('/login?message=You have been signed out successfully');
       }
-    } catch {
+    } catch (error) {
+      console.error('Logout exception:', error);
       toast.error("Failed to sign out");
     }
+  };
+
+  const handleCartClick = () => {
+    console.log('Cart button clicked');
+    console.log('Cart store state:', { isOpen: useCartStore.getState().isOpen, items: useCartStore.getState().items.length });
+    openCart();
   };
 
   return (
@@ -151,7 +162,7 @@ export default function Header() {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={openCart}
+                  onClick={handleCartClick}
                   className="relative"
                 >
                   <ShoppingCart className="h-4 w-4" />
@@ -238,7 +249,7 @@ export default function Header() {
               <Button
                 variant="ghost"
                 onClick={() => {
-                  openCart();
+                  handleCartClick();
                   setIsMobileMenuOpen(false);
                 }}
                 className="justify-start"
