@@ -102,7 +102,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   // Extract payment intent ID
   const paymentIntentId = typeof session.payment_intent === 'string' 
     ? session.payment_intent 
-    : session.payment_intent.id;
+    : (session.payment_intent as Stripe.PaymentIntent).id;
 
   // Validate environment variables
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -167,7 +167,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       status: 'paid',
       customer_name: session.customer_details?.name ?? null,
       phone: session.customer_details?.phone ?? null,
-      shipping_address: session.shipping_details?.address || null,
+      shipping_address: session.customer_details?.address || null,
       billing_address: session.customer_details?.address || null,
       order_items: products.map((product, index) => ({
         id: product.id,
