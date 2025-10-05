@@ -4,6 +4,7 @@ import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
 import { Toaster } from "@/components/ui/sonner";
+import { Analytics } from "@vercel/analytics/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -83,6 +84,7 @@ export default function RootLayout({
         </main>
         <Footer />
         <Toaster />
+        <Analytics />
       </body>
     </html>
   );
