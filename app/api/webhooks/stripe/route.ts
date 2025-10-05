@@ -70,10 +70,28 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string; metadata: { productIds: string; kitTypes: string; quantities: string; totalItems: string }; payment_intent: string; shipping_details?: { address: Record<string, unknown> }; customer_details?: { address: Record<string, unknown> } }) {
+async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | null; shipping_details?: { address: Record<string, unknown> }; customer_details?: { address: Record<string, unknown> } }) {
   console.log('Processing checkout session completed:', session.id);
   console.log('Session metadata:', session.metadata);
   console.log('Customer email:', session.customer_email);
+
+  // Check if customer email is available
+  if (!session.customer_email) {
+    console.error('No customer email found in session');
+    throw new Error('Customer email is required');
+  }
+
+  // Check if metadata is available
+  if (!session.metadata) {
+    console.error('No metadata found in session');
+    throw new Error('Session metadata is required');
+  }
+
+  // Check if payment intent is available
+  if (!session.payment_intent) {
+    console.error('No payment intent found in session');
+    throw new Error('Payment intent is required');
+  }
 
       try {
         const supabase = createClient(
@@ -82,11 +100,9 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
         );
 
     // Extract order details from session metadata
-    const {
-      productIds,
-      kitTypes,
-      quantities
-    } = session.metadata;
+    const productIds = session.metadata?.productIds;
+    const kitTypes = session.metadata?.kitTypes;
+    const quantities = session.metadata?.quantities;
 
     if (!productIds || !kitTypes || !quantities) {
       throw new Error('Missing required metadata in session');

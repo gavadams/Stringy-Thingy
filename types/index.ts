@@ -67,7 +67,7 @@ export interface UserGeneration {
   id: string;
   userId: string;
   patternId: string;
-  customizations: Record<string, any>;
+  customizations: Record<string, unknown>;
   status: 'draft' | 'completed' | 'shared';
   createdAt: Date;
   updatedAt: Date;
