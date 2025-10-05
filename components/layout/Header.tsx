@@ -64,12 +64,15 @@ export default function Header() {
             .single();
           setProfile(profile);
           
-          // Only load cart on SIGNED_IN event (not on page refresh)
+          // Only load cart on SIGNED_IN event (not on INITIAL_SESSION)
           if (event === 'SIGNED_IN' && !hasLoadedCart) {
             setUserId(session.user.id);
             await loadUserCart(session.user.id);
             clearAnonymousCart();
             hasLoadedCart = true;
+          } else if (event === 'INITIAL_SESSION') {
+            // For initial session, just set user ID without loading cart
+            setUserId(session.user.id);
           } else {
             setUserId(session.user.id);
           }

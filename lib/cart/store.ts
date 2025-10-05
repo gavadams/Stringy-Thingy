@@ -173,8 +173,11 @@ export const useCartStore = create<CartStore>()(
             
             console.log('Saved items:', savedItems.length);
             
-            // Always merge if there are items in either cart
-            if (currentItems.length > 0 || savedItems.length > 0) {
+            // Only merge if current cart has different items than saved cart
+            const currentCartData = JSON.stringify({ items: currentItems });
+            const savedCartData = JSON.stringify({ items: savedItems });
+            
+            if (currentCartData !== savedCartData && (currentItems.length > 0 || savedItems.length > 0)) {
               console.log('Merging carts for user:', userId);
               // Merge current cart with saved cart
               const mergedItems = [...currentItems];
@@ -199,7 +202,7 @@ export const useCartStore = create<CartStore>()(
                 saveUserCart(userId);
               }, 0);
             } else {
-              console.log('No items to merge, just setting saved cart');
+              console.log('Carts are identical or empty, just setting saved cart');
               set({ items: savedItems });
             }
           } else {
