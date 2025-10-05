@@ -155,25 +155,22 @@ export const useCartStore = create<CartStore>()(
 
       loadUserCart: async (userId: string) => {
         try {
-          const { items: currentItems, currentUserId } = get();
+          const { items: currentItems } = get();
           const userCartKey = `cart-${userId}`;
           const savedCart = localStorage.getItem(userCartKey);
           
-          // If we're already loading this user's cart, don't merge
-          if (currentUserId === userId && currentItems.length > 0) {
-            console.log('Already loading user cart, skipping merge');
-            return;
-          }
+          console.log('Loading user cart for:', userId);
+          console.log('Current items:', currentItems.length);
+          console.log('Saved cart exists:', !!savedCart);
           
           if (savedCart) {
             const cartData = JSON.parse(savedCart);
             const savedItems = cartData.items || [];
             
-            // Only merge if current cart is different from saved cart
-            const currentCartData = JSON.stringify({ items: currentItems });
-            const savedCartData = JSON.stringify({ items: savedItems });
+            console.log('Saved items:', savedItems.length);
             
-            if (currentCartData !== savedCartData) {
+            // Always merge if there are items in either cart
+            if (currentItems.length > 0 || savedItems.length > 0) {
               console.log('Merging carts for user:', userId);
               // Merge current cart with saved cart
               const mergedItems = [...currentItems];
@@ -189,6 +186,7 @@ export const useCartStore = create<CartStore>()(
                 }
               });
               
+              console.log('Merged items:', mergedItems.length);
               set({ items: mergedItems });
               
               // Save the merged cart
@@ -197,11 +195,11 @@ export const useCartStore = create<CartStore>()(
                 saveUserCart(userId);
               }, 0);
             } else {
-              console.log('Carts are identical, no merge needed');
-              // Just set the saved cart without merging
+              console.log('No items to merge, just setting saved cart');
               set({ items: savedItems });
             }
           } else {
+            console.log('No saved cart, saving current cart');
             // No saved cart, just save current cart
             setTimeout(() => {
               const { saveUserCart } = get();
