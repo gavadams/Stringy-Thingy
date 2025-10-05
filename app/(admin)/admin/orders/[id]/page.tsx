@@ -32,8 +32,22 @@ type Order = Database['public']['Tables']['orders']['Row'] & {
   }>;
   customer_name?: string;
   phone?: string;
-  shipping_address?: any;
-  billing_address?: any;
+  shipping_address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
+  billing_address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
   order_items?: Array<{
     id: string;
     name: string;
