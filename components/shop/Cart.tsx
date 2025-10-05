@@ -37,6 +37,11 @@ export default function Cart() {
   const itemCount = getItemCount();
 
   console.log('Cart component render:', { isOpen, items: items.length, itemCount });
+  
+  // Debug: Check if Dialog should be visible
+  if (isOpen) {
+    console.log('Cart should be visible, isOpen:', isOpen);
+  }
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
     if (newQuantity <= 0) {

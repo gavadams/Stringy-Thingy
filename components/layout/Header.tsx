@@ -101,7 +101,15 @@ export default function Header() {
   const handleSignOut = async () => {
     console.log('Logout button clicked');
     console.log('User state:', { user: !!user, profile: !!profile, isLoading });
+    
+    // Prevent multiple logout attempts
+    if (isLoading) {
+      console.log('Already processing logout, ignoring click');
+      return;
+    }
+    
     try {
+      console.log('Starting logout process...');
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);

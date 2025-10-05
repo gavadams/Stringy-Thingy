@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Header from "@/components/layout/Header";
 import Footer from "@/components/layout/Footer";
+import Cart from "@/components/shop/Cart";
 import { Toaster } from "@/components/ui/sonner";
 import { Analytics } from "@vercel/analytics/next";
 
@@ -83,6 +84,7 @@ export default function RootLayout({
           {children}
         </main>
         <Footer />
+        <Cart />
         <Toaster />
         <Analytics />
       </body>
