@@ -30,6 +30,7 @@ interface CartStore {
   setUserId: (userId: string | null) => void;
   loadUserCart: (userId: string) => Promise<void>;
   saveUserCart: (userId: string) => Promise<void>;
+  clearAnonymousCart: () => void;
   
   // Computed values
   getTotal: () => number;
