@@ -3,11 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Menu, X, LogOut } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Menu, X, LogOut, ShoppingCart } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 import type { User } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
+import { useCartStore } from "@/lib/cart/store";
 
 export default function Header() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -15,8 +17,10 @@ export default function Header() {
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
+  const { getItemCount, openCart } = useCartStore();
 
   const supabase = createClient();
+  const cartItemCount = getItemCount();
 
   useEffect(() => {
     const getUser = async () => {
@@ -116,41 +120,57 @@ export default function Header() {
             </Link>
           </nav>
 
-          {/* Desktop Auth Buttons */}
-          <div className="hidden md:flex items-center space-x-4">
-            {isLoading ? (
-              <div className="w-8 h-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent"></div>
-            ) : user ? (
-              <div className="flex items-center space-x-4">
-                <span className="text-sm text-gray-600">
-                  {user.email || 'User'}
-                </span>
-                {profile?.role === 'admin' && (
-                  <Button variant="outline" size="sm" asChild>
-                    <Link href="/admin">Admin</Link>
-                  </Button>
+              {/* Desktop Auth Buttons */}
+              <div className="hidden md:flex items-center space-x-4">
+                {/* Cart Button */}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openCart}
+                  className="relative"
+                >
+                  <ShoppingCart className="h-4 w-4" />
+                  {cartItemCount > 0 && (
+                    <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                      {cartItemCount}
+                    </Badge>
+                  )}
+                </Button>
+
+                {isLoading ? (
+                  <div className="w-8 h-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent"></div>
+                ) : user ? (
+                  <div className="flex items-center space-x-4">
+                    <span className="text-sm text-gray-600">
+                      {user.email || 'User'}
+                    </span>
+                    {profile?.role === 'admin' && (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href="/admin">Admin</Link>
+                      </Button>
+                    )}
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/dashboard">Dashboard</Link>
+                    </Button>
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href="/my-generations">My Generations</Link>
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                      <LogOut className="h-4 w-4 mr-2" />
+                      Logout
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <Button variant="ghost" asChild>
+                      <Link href="/login">Login</Link>
+                    </Button>
+                    <Button asChild>
+                      <Link href="/login">Sign Up</Link>
+                    </Button>
+                  </>
                 )}
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/dashboard">Dashboard</Link>
-                </Button>
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/my-generations">My Generations</Link>
-                </Button>
-                <Button variant="ghost" size="sm" onClick={handleSignOut}>
-                  <LogOut className="h-4 w-4" />
-                </Button>
               </div>
-            ) : (
-              <>
-                <Button variant="ghost" asChild>
-                  <Link href="/login">Login</Link>
-                </Button>
-                <Button asChild>
-                  <Link href="/login">Sign Up</Link>
-                </Button>
-              </>
-            )}
-          </div>
 
           {/* Mobile Menu Button */}
           <Button
@@ -188,6 +208,25 @@ export default function Header() {
               >
                 How It Works
               </Link>
+              
+              {/* Mobile Cart Button */}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  openCart();
+                  setIsMobileMenuOpen(false);
+                }}
+                className="justify-start"
+              >
+                <ShoppingCart className="h-4 w-4 mr-2" />
+                Cart
+                {cartItemCount > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {cartItemCount}
+                  </Badge>
+                )}
+              </Button>
+              
               {user ? (
                 <div className="flex flex-col space-y-2 pt-4 border-t">
                   <div className="px-3 py-2 text-sm text-gray-600">
@@ -212,7 +251,7 @@ export default function Header() {
                   </Button>
                   <Button variant="ghost" onClick={handleSignOut} className="justify-start">
                     <LogOut className="h-4 w-4 mr-2" />
-                    Sign Out
+                    Logout
                   </Button>
                 </div>
               ) : (
