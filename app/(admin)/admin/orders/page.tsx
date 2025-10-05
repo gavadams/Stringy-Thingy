@@ -27,7 +27,38 @@ import {
 import Link from "next/link";
 import { Database } from "@/types/database.types";
 
-type Order = Database['public']['Tables']['orders']['Row'];
+type Order = Database['public']['Tables']['orders']['Row'] & {
+  shipping_address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
+  billing_address?: {
+    line1: string;
+    line2?: string;
+    city: string;
+    state: string;
+    postal_code: string;
+    country: string;
+  };
+  customer_name?: string;
+  phone?: string;
+  stripe_session_id?: string;
+  stripe_payment_intent_id?: string;
+  total_amount?: number;
+  status?: 'pending' | 'paid' | 'shipped' | 'completed';
+  kit_codes?: string[];
+  order_items?: Array<{
+    id: string;
+    name: string;
+    kit_type: string;
+    quantity: number;
+    price: number;
+  }>;
+};
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);

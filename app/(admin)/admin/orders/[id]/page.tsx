@@ -32,6 +32,11 @@ type Order = Database['public']['Tables']['orders']['Row'] & {
   }>;
   customer_name?: string;
   phone?: string;
+  stripe_session_id?: string;
+  stripe_payment_intent_id?: string;
+  total_amount?: number;
+  status?: 'pending' | 'paid' | 'shipped' | 'completed';
+  kit_codes?: string[];
   shipping_address?: {
     line1: string;
     line2?: string;
