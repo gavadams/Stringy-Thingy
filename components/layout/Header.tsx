@@ -17,7 +17,7 @@ export default function Header() {
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { getItemCount, openCart } = useCartStore();
+  const { getItemCount, openCart, clearCart } = useCartStore();
 
   const supabase = createClient();
   const cartItemCount = getItemCount();
@@ -57,15 +57,16 @@ export default function Header() {
         }
         setIsLoading(false);
         
-        // Force a page refresh to ensure state is updated
+        // Clear cart and force a page refresh when signed out
         if (event === 'SIGNED_OUT') {
+          clearCart();
           window.location.reload();
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, [supabase, clearCart]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);
@@ -80,6 +81,7 @@ export default function Header() {
         toast.success("Signed out successfully");
         setUser(null);
         setProfile(null);
+        clearCart(); // Clear cart on logout
         router.push('/login?message=You have been signed out successfully');
       }
     } catch {
