@@ -155,31 +155,54 @@ export const useCartStore = create<CartStore>()(
 
       loadUserCart: async (userId: string) => {
         try {
-          const { items: currentItems } = get();
+          const { items: currentItems, currentUserId } = get();
           const userCartKey = `cart-${userId}`;
           const savedCart = localStorage.getItem(userCartKey);
+          
+          // If we're already loading this user's cart, don't merge
+          if (currentUserId === userId && currentItems.length > 0) {
+            console.log('Already loading user cart, skipping merge');
+            return;
+          }
           
           if (savedCart) {
             const cartData = JSON.parse(savedCart);
             const savedItems = cartData.items || [];
             
-            // Merge current cart with saved cart
-            const mergedItems = [...currentItems];
+            // Only merge if current cart is different from saved cart
+            const currentCartData = JSON.stringify({ items: currentItems });
+            const savedCartData = JSON.stringify({ items: savedItems });
             
-            savedItems.forEach((savedItem: CartItem) => {
-              const existingItem = mergedItems.find(item => item.id === savedItem.id);
-              if (existingItem) {
-                // If item exists in both carts, add quantities
-                existingItem.quantity += savedItem.quantity;
-              } else {
-                // If item only exists in saved cart, add it
-                mergedItems.push(savedItem);
-              }
-            });
-            
-            set({ items: mergedItems });
-            
-            // Save the merged cart
+            if (currentCartData !== savedCartData) {
+              console.log('Merging carts for user:', userId);
+              // Merge current cart with saved cart
+              const mergedItems = [...currentItems];
+              
+              savedItems.forEach((savedItem: CartItem) => {
+                const existingItem = mergedItems.find(item => item.id === savedItem.id);
+                if (existingItem) {
+                  // If item exists in both carts, add quantities
+                  existingItem.quantity += savedItem.quantity;
+                } else {
+                  // If item only exists in saved cart, add it
+                  mergedItems.push(savedItem);
+                }
+              });
+              
+              set({ items: mergedItems });
+              
+              // Save the merged cart
+              setTimeout(() => {
+                const { saveUserCart } = get();
+                saveUserCart(userId);
+              }, 0);
+            } else {
+              console.log('Carts are identical, no merge needed');
+              // Just set the saved cart without merging
+              set({ items: savedItems });
+            }
+          } else {
+            // No saved cart, just save current cart
             setTimeout(() => {
               const { saveUserCart } = get();
               saveUserCart(userId);
