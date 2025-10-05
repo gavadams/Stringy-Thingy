@@ -23,6 +23,8 @@ export default function Header() {
   const cartItemCount = getItemCount();
 
   useEffect(() => {
+    let hasLoadedCart = false; // Flag to prevent duplicate cart loading
+
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
@@ -35,12 +37,13 @@ export default function Header() {
           .single();
         setProfile(profile);
         
-        // Load user's cart (this will merge with current cart)
-        setUserId(user.id);
-        await loadUserCart(user.id);
-        
-        // Clear anonymous cart after merging
-        clearAnonymousCart();
+        // Load cart only on initial page load if user is already signed in
+        if (!hasLoadedCart) {
+          setUserId(user.id);
+          await loadUserCart(user.id);
+          clearAnonymousCart();
+          hasLoadedCart = true;
+        }
       }
       
       setIsLoading(false);
@@ -52,6 +55,7 @@ export default function Header() {
       async (event, session) => {
         console.log('Auth state changed:', event, session?.user?.email);
         setUser(session?.user ?? null);
+        
         if (session?.user) {
           const { data: profile } = await supabase
             .from('profiles')
@@ -60,15 +64,19 @@ export default function Header() {
             .single();
           setProfile(profile);
           
-            // Load user's cart (this will merge with current cart)
+          // Only load cart on SIGNED_IN event (not on page refresh)
+          if (event === 'SIGNED_IN' && !hasLoadedCart) {
             setUserId(session.user.id);
             await loadUserCart(session.user.id);
-            
-            // Clear anonymous cart after merging
             clearAnonymousCart();
+            hasLoadedCart = true;
+          } else {
+            setUserId(session.user.id);
+          }
         } else {
           setProfile(null);
           setUserId(null);
+          hasLoadedCart = false; // Reset flag on logout
         }
         setIsLoading(false);
         
