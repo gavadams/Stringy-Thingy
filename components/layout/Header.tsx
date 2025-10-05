@@ -17,7 +17,7 @@ export default function Header() {
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { getItemCount, openCart, clearCart, setUserId, loadUserCart } = useCartStore();
+  const { getItemCount, openCart, clearCart, setUserId, loadUserCart, clearAnonymousCart } = useCartStore();
 
   const supabase = createClient();
   const cartItemCount = getItemCount();
@@ -35,9 +35,12 @@ export default function Header() {
           .single();
         setProfile(profile);
         
-        // Load user's cart
+        // Load user's cart (this will merge with current cart)
         setUserId(user.id);
         await loadUserCart(user.id);
+        
+        // Clear anonymous cart after merging
+        clearAnonymousCart();
       }
       
       setIsLoading(false);
@@ -57,9 +60,12 @@ export default function Header() {
             .single();
           setProfile(profile);
           
-          // Load user's cart
-          setUserId(session.user.id);
-          await loadUserCart(session.user.id);
+            // Load user's cart (this will merge with current cart)
+            setUserId(session.user.id);
+            await loadUserCart(session.user.id);
+            
+            // Clear anonymous cart after merging
+            clearAnonymousCart();
         } else {
           setProfile(null);
           setUserId(null);

@@ -154,13 +154,35 @@ export const useCartStore = create<CartStore>()(
 
       loadUserCart: async (userId: string) => {
         try {
-          // For now, we'll use localStorage with user-specific keys
-          // In a real app, you'd fetch from your backend
+          const { items: currentItems } = get();
           const userCartKey = `cart-${userId}`;
           const savedCart = localStorage.getItem(userCartKey);
+          
           if (savedCart) {
             const cartData = JSON.parse(savedCart);
-            set({ items: cartData.items || [] });
+            const savedItems = cartData.items || [];
+            
+            // Merge current cart with saved cart
+            const mergedItems = [...currentItems];
+            
+            savedItems.forEach((savedItem: any) => {
+              const existingItem = mergedItems.find(item => item.id === savedItem.id);
+              if (existingItem) {
+                // If item exists in both carts, add quantities
+                existingItem.quantity += savedItem.quantity;
+              } else {
+                // If item only exists in saved cart, add it
+                mergedItems.push(savedItem);
+              }
+            });
+            
+            set({ items: mergedItems });
+            
+            // Save the merged cart
+            setTimeout(() => {
+              const { saveUserCart } = get();
+              saveUserCart(userId);
+            }, 0);
           }
         } catch (error) {
           console.error('Error loading user cart:', error);
@@ -174,6 +196,15 @@ export const useCartStore = create<CartStore>()(
           localStorage.setItem(userCartKey, JSON.stringify({ items }));
         } catch (error) {
           console.error('Error saving user cart:', error);
+        }
+      },
+
+      clearAnonymousCart: () => {
+        // Clear the anonymous cart from localStorage
+        try {
+          localStorage.removeItem('cart-storage');
+        } catch (error) {
+          console.error('Error clearing anonymous cart:', error);
         }
       },
     }),
