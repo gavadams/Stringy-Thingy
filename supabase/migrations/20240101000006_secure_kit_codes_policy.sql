@@ -6,12 +6,9 @@ DROP POLICY "Kit codes viewable for redemption" ON kit_codes;
 
 -- Create secure policies for kit_codes
 
--- 1. SELECT policy: Users can view unredeemed codes (for redemption) and their own codes
+-- 1. SELECT policy: Users can only view their own codes, admins can see all
 CREATE POLICY "Secure kit codes view policy" ON kit_codes FOR SELECT
 USING (
-  -- Allow viewing unredeemed codes (for redemption)
-  (redeemed_by IS NULL)
-  OR
   -- Allow viewing codes you own
   (redeemed_by = auth.uid())
   OR
@@ -71,14 +68,23 @@ CREATE OR REPLACE FUNCTION redeem_kit_code_safe(code_to_redeem TEXT, user_id UUI
 RETURNS JSON AS $$
 DECLARE
   kit_code_record RECORD;
-  result JSON;
+  existing_user_code RECORD;
 BEGIN
   -- Check if user exists and is authenticated
   IF user_id IS NULL THEN
     RETURN json_build_object('success', false, 'error', 'User not authenticated');
   END IF;
 
-  -- Find the kit code
+  -- Check if user already has a kit code (double-check)
+  SELECT * INTO existing_user_code
+  FROM kit_codes
+  WHERE redeemed_by = user_id;
+
+  IF FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'User already has a kit code');
+  END IF;
+
+  -- Find the kit code (only unredeemed, active codes)
   SELECT * INTO kit_code_record
   FROM kit_codes
   WHERE code = code_to_redeem
@@ -90,17 +96,18 @@ BEGIN
     RETURN json_build_object('success', false, 'error', 'Invalid or already redeemed kit code');
   END IF;
 
-  -- Check if user already has a kit code
-  IF EXISTS (SELECT 1 FROM kit_codes WHERE redeemed_by = user_id) THEN
-    RETURN json_build_object('success', false, 'error', 'User already has a kit code');
-  END IF;
-
-  -- Redeem the kit code
+  -- Redeem the kit code atomically
   UPDATE kit_codes
   SET redeemed_by = user_id
-  WHERE id = kit_code_record.id;
+  WHERE id = kit_code_record.id
+    AND redeemed_by IS NULL; -- Double-check it's still unredeemed
 
-  -- Return success
+  -- Check if the update was successful
+  IF NOT FOUND THEN
+    RETURN json_build_object('success', false, 'error', 'Kit code was redeemed by another user');
+  END IF;
+
+  -- Return success with kit code details
   RETURN json_build_object(
     'success', true,
     'kit_code', json_build_object(

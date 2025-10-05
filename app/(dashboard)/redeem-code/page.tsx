@@ -22,83 +22,11 @@ export default function RedeemCodePage() {
     setIsLoading(true);
 
     try {
-      console.log("Starting kit code redemption for:", code);
-      
-      // Test Supabase configuration
-      console.log("Supabase URL:", process.env.NEXT_PUBLIC_SUPABASE_URL);
-      console.log("Supabase client:", supabase);
-      
-      // First, get the current user
+      // Get the current user
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !user) {
-        console.log("Auth error:", authError);
         toast.error("You must be logged in to redeem a kit code");
-        setIsLoading(false);
-        return;
-      }
-
-      console.log("User authenticated:", user.email);
-
-      // Let's check what tables we can access
-      console.log("Testing different table names...");
-      
-      // Try kit_codes
-      const { data: allCodes, error: allCodesError } = await supabase
-        .from('kit_codes')
-        .select('*');
-      console.log("kit_codes table:", { allCodes, allCodesError });
-      
-      // Try kitcodes (no underscore)
-      const { data: kitCodesNoUnderscore, error: kitCodesNoUnderscoreError } = await supabase
-        .from('kitcodes')
-        .select('*');
-      console.log("kitcodes table:", { kitCodesNoUnderscore, kitCodesNoUnderscoreError });
-      
-      // Try kit_code (singular)
-      const { data: kitCodeSingular, error: kitCodeSingularError } = await supabase
-        .from('kit_code')
-        .select('*');
-      console.log("kit_code table:", { kitCodeSingular, kitCodeSingularError });
-      
-      if (allCodesError) {
-        console.log("RLS Error details:", allCodesError);
-        toast.error("Database access error: " + allCodesError.message);
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if the kit code exists and is valid
-      console.log("Looking for specific code:", code);
-      
-      // Try without RLS restrictions first
-      const { data: kitCode, error: codeError } = await supabase
-        .from('kit_codes')
-        .select('*')
-        .eq('code', code)
-        .eq('is_active', true);
-      
-      console.log("Kit code search result:", { kitCode, codeError });
-      
-      if (codeError) {
-        console.log("Code search error:", codeError);
-        toast.error("Error searching for kit code: " + codeError.message);
-        setIsLoading(false);
-        return;
-      }
-      
-      if (!kitCode || kitCode.length === 0) {
-        toast.error("Invalid or inactive kit code");
-        setIsLoading(false);
-        return;
-      }
-      
-      const foundKitCode = kitCode[0];
-      console.log("Found kit code:", foundKitCode);
-
-      // Check if the code is already redeemed
-      if (foundKitCode.redeemed_by) {
-        toast.error("This kit code has already been redeemed");
         setIsLoading(false);
         return;
       }
@@ -116,8 +44,6 @@ export default function RedeemCodePage() {
         return;
       }
 
-      console.log("Redeeming kit code securely...");
-
       // Use the secure function to redeem the kit code
       const { data: redeemResult, error: redeemError } = await supabase
         .rpc('redeem_kit_code_safe', {
@@ -125,10 +51,7 @@ export default function RedeemCodePage() {
           user_id: user.id
         });
 
-      console.log("Redeem result:", { redeemResult, redeemError });
-
       if (redeemError) {
-        console.log("Redeem error:", redeemError);
         toast.error("Failed to redeem kit code: " + redeemError.message);
         setIsLoading(false);
         return;
@@ -140,7 +63,6 @@ export default function RedeemCodePage() {
         return;
       }
 
-      console.log("Kit code redeemed successfully!");
       toast.success("Kit code redeemed successfully!");
       router.push("/dashboard");
       
@@ -148,7 +70,6 @@ export default function RedeemCodePage() {
       console.error("Unexpected error:", error);
       toast.error("An unexpected error occurred");
     } finally {
-      console.log("Setting loading to false");
       setIsLoading(false);
     }
   };
