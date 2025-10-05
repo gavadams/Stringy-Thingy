@@ -17,7 +17,7 @@ export default function Header() {
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { getItemCount, openCart, clearCart } = useCartStore();
+  const { getItemCount, openCart, clearCart, setUserId, loadUserCart, saveUserCart } = useCartStore();
 
   const supabase = createClient();
   const cartItemCount = getItemCount();
@@ -34,6 +34,10 @@ export default function Header() {
           .eq('id', user.id)
           .single();
         setProfile(profile);
+        
+        // Load user's cart
+        setUserId(user.id);
+        await loadUserCart(user.id);
       }
       
       setIsLoading(false);
@@ -52,8 +56,13 @@ export default function Header() {
             .eq('id', session.user.id)
             .single();
           setProfile(profile);
+          
+          // Load user's cart
+          setUserId(session.user.id);
+          await loadUserCart(session.user.id);
         } else {
           setProfile(null);
+          setUserId(null);
         }
         setIsLoading(false);
         
@@ -66,7 +75,7 @@ export default function Header() {
     );
 
     return () => subscription.unsubscribe();
-  }, [supabase, clearCart]);
+  }, [supabase, clearCart, setUserId, loadUserCart]);
 
   const toggleMobileMenu = () => {
     setIsMobileMenuOpen(!isMobileMenuOpen);

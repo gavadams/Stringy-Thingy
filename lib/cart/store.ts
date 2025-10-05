@@ -15,6 +15,7 @@ export interface CartItem {
 interface CartStore {
   items: CartItem[];
   isOpen: boolean;
+  currentUserId: string | null;
   
   // Actions
   addItem: (product: Product, quantity?: number) => void;
@@ -24,6 +25,11 @@ interface CartStore {
   toggleCart: () => void;
   openCart: () => void;
   closeCart: () => void;
+  
+  // User-specific actions
+  setUserId: (userId: string | null) => void;
+  loadUserCart: (userId: string) => Promise<void>;
+  saveUserCart: (userId: string) => Promise<void>;
   
   // Computed values
   getTotal: () => number;
@@ -36,33 +42,51 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       isOpen: false,
+      currentUserId: null,
 
       addItem: (product: Product, quantity = 1) => {
         set((state) => {
           const existingItem = state.items.find(item => item.id === product.id);
+          let newItems;
           
           if (existingItem) {
             // Update existing item quantity
-            return {
-              items: state.items.map(item =>
-                item.id === product.id
-                  ? { ...item, quantity: item.quantity + quantity }
-                  : item
-              )
-            };
+            newItems = state.items.map(item =>
+              item.id === product.id
+                ? { ...item, quantity: item.quantity + quantity }
+                : item
+            );
           } else {
             // Add new item
-            return {
-              items: [...state.items, { id: product.id, product, quantity }]
-            };
+            newItems = [...state.items, { id: product.id, product, quantity }];
           }
+          
+          // Save to user cart if user is logged in
+          if (state.currentUserId) {
+            setTimeout(() => {
+              const { saveUserCart } = get();
+              saveUserCart(state.currentUserId!);
+            }, 0);
+          }
+          
+          return { items: newItems };
         });
       },
 
       removeItem: (productId: string) => {
-        set((state) => ({
-          items: state.items.filter(item => item.id !== productId)
-        }));
+        set((state) => {
+          const newItems = state.items.filter(item => item.id !== productId);
+          
+          // Save to user cart if user is logged in
+          if (state.currentUserId) {
+            setTimeout(() => {
+              const { saveUserCart } = get();
+              saveUserCart(state.currentUserId!);
+            }, 0);
+          }
+          
+          return { items: newItems };
+        });
       },
 
       updateQuantity: (productId: string, quantity: number) => {
@@ -71,13 +95,23 @@ export const useCartStore = create<CartStore>()(
           return;
         }
 
-        set((state) => ({
-          items: state.items.map(item =>
+        set((state) => {
+          const newItems = state.items.map(item =>
             item.id === productId
               ? { ...item, quantity }
               : item
-          )
-        }));
+          );
+          
+          // Save to user cart if user is logged in
+          if (state.currentUserId) {
+            setTimeout(() => {
+              const { saveUserCart } = get();
+              saveUserCart(state.currentUserId!);
+            }, 0);
+          }
+          
+          return { items: newItems };
+        });
       },
 
       clearCart: () => {
@@ -112,6 +146,35 @@ export const useCartStore = create<CartStore>()(
         const { items } = get();
         const item = items.find(item => item.id === productId);
         return item ? item.quantity : 0;
+      },
+
+      setUserId: (userId: string | null) => {
+        set({ currentUserId: userId });
+      },
+
+      loadUserCart: async (userId: string) => {
+        try {
+          // For now, we'll use localStorage with user-specific keys
+          // In a real app, you'd fetch from your backend
+          const userCartKey = `cart-${userId}`;
+          const savedCart = localStorage.getItem(userCartKey);
+          if (savedCart) {
+            const cartData = JSON.parse(savedCart);
+            set({ items: cartData.items || [] });
+          }
+        } catch (error) {
+          console.error('Error loading user cart:', error);
+        }
+      },
+
+      saveUserCart: async (userId: string) => {
+        try {
+          const { items } = get();
+          const userCartKey = `cart-${userId}`;
+          localStorage.setItem(userCartKey, JSON.stringify({ items }));
+        } catch (error) {
+          console.error('Error saving user cart:', error);
+        }
       },
     }),
     {
