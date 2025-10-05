@@ -26,7 +26,10 @@ export async function GET(
 
     if (!data) {
       return NextResponse.json(
-        { error: 'Order not found' },
+        { 
+          error: 'Order not found. The webhook may still be processing your payment.',
+          order: null 
+        },
         { status: 404 }
       );
     }

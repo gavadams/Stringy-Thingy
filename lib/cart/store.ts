@@ -163,22 +163,17 @@ export const useCartStore = create<CartStore>()(
           const userCartKey = `cart-${userId}`;
           const savedCart = localStorage.getItem(userCartKey);
           
-          console.log('Loading user cart for:', userId);
-          console.log('Current items:', currentItems.length);
-          console.log('Saved cart exists:', !!savedCart);
+          // Removed debug logs to prevent console spam
           
           if (savedCart) {
             const cartData = JSON.parse(savedCart);
             const savedItems = cartData.items || [];
-            
-            console.log('Saved items:', savedItems.length);
             
             // Only merge if current cart has different items than saved cart
             const currentCartData = JSON.stringify({ items: currentItems });
             const savedCartData = JSON.stringify({ items: savedItems });
             
             if (currentCartData !== savedCartData && (currentItems.length > 0 || savedItems.length > 0)) {
-              console.log('Merging carts for user:', userId);
               // Merge current cart with saved cart
               const mergedItems = [...currentItems];
               
@@ -193,25 +188,16 @@ export const useCartStore = create<CartStore>()(
                 }
               });
               
-              console.log('Merged items:', mergedItems.length);
               set({ items: mergedItems });
               
               // Save the merged cart
-              setTimeout(() => {
-                const { saveUserCart } = get();
-                saveUserCart(userId);
-              }, 0);
+              localStorage.setItem(userCartKey, JSON.stringify({ items: mergedItems }));
             } else {
-              console.log('Carts are identical or empty, just setting saved cart');
               set({ items: savedItems });
             }
           } else {
-            console.log('No saved cart, saving current cart');
             // No saved cart, just save current cart
-            setTimeout(() => {
-              const { saveUserCart } = get();
-              saveUserCart(userId);
-            }, 0);
+            localStorage.setItem(userCartKey, JSON.stringify({ items: currentItems }));
           }
         } catch (error) {
           console.error('Error loading user cart:', error);

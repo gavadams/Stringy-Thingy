@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createCheckoutSession, CartItem } from '@/lib/stripe/checkout';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@/lib/supabase/client';
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +50,15 @@ export async function POST(request: NextRequest) {
     // Validate prices to prevent manipulation
     for (const item of items) {
       const product = products.find(p => p.id === item.id);
+      console.log('Price validation:', {
+        itemId: item.id,
+        itemPrice: item.price,
+        itemPriceType: typeof item.price,
+        productPrice: product?.price,
+        productPriceType: typeof product?.price,
+        pricesMatch: product?.price === item.price
+      });
+      
       if (!product || product.price !== item.price) {
         return NextResponse.json(
           { error: 'Product prices have changed. Please refresh and try again.' },

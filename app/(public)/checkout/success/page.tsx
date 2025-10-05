@@ -58,6 +58,11 @@ export default function CheckoutSuccessPage() {
       const data = await response.json();
 
       if (!response.ok) {
+        if (response.status === 404) {
+          // Order not found yet, webhook may still be processing
+          setError('Your payment is being processed. Please check back in a few minutes or check your email for confirmation.');
+          return;
+        }
         throw new Error(data.error || 'Failed to fetch order details');
       }
 

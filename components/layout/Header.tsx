@@ -20,7 +20,21 @@ export default function Header() {
   const { getItemCount, openCart, clearCart, setUserId, loadUserCart, clearAnonymousCart } = useCartStore();
 
   const supabase = createClient();
-  const cartItemCount = getItemCount();
+  // Prevent hydration mismatch by using useEffect for cart count
+  const [mounted, setMounted] = useState(false);
+  const [cartItemCount, setCartItemCount] = useState(0);
+  
+  useEffect(() => {
+    setMounted(true);
+    setCartItemCount(getItemCount());
+    
+    // Subscribe to cart changes
+    const unsubscribe = useCartStore.subscribe((state) => {
+      setCartItemCount(state.getItemCount());
+    });
+    
+    return unsubscribe;
+  }, []);
 
   useEffect(() => {
     let hasLoadedCart = false; // Flag to prevent duplicate cart loading
@@ -53,7 +67,7 @@ export default function Header() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        // Removed debug log to prevent console spam
         setUser(session?.user ?? null);
         
         if (session?.user) {
@@ -99,23 +113,17 @@ export default function Header() {
   };
 
   const handleSignOut = async () => {
-    console.log('Logout button clicked');
-    console.log('User state:', { user: !!user, profile: !!profile, isLoading });
-    
     // Prevent multiple logout attempts
     if (isLoading) {
-      console.log('Already processing logout, ignoring click');
       return;
     }
     
     try {
-      console.log('Starting logout process...');
       const { error } = await supabase.auth.signOut();
       if (error) {
         console.error('Logout error:', error);
         toast.error(error.message);
       } else {
-        console.log('Logout successful');
         toast.success("Signed out successfully");
         setUser(null);
         setProfile(null);
@@ -129,8 +137,6 @@ export default function Header() {
   };
 
   const handleCartClick = () => {
-    console.log('Cart button clicked');
-    console.log('Cart store state:', { isOpen: useCartStore.getState().isOpen, items: useCartStore.getState().items.length });
     openCart();
   };
 
@@ -177,7 +183,7 @@ export default function Header() {
                   className="relative"
                 >
                   <ShoppingCart className="h-4 w-4" />
-                  {cartItemCount > 0 && (
+                  {mounted && cartItemCount > 0 && (
                     <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
                       {cartItemCount}
                     </Badge>

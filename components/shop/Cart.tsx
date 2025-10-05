@@ -43,12 +43,7 @@ export default function Cart() {
   const total = getTotal();
   const itemCount = getItemCount();
 
-  console.log('Cart component render:', { isOpen, items: items.length, itemCount });
-  
-  // Debug: Check if Dialog should be visible
-  if (isOpen) {
-    console.log('Cart should be visible, isOpen:', isOpen);
-  }
+  // Removed debug logs to prevent console spam
 
   const handleQuantityChange = (productId: string, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -83,12 +78,14 @@ export default function Cart() {
       // Prepare cart items for checkout
       const checkoutItems = items.map(item => ({
         id: item.id,
-        name: item.name,
-        price: item.price,
+        name: item.product.name,
+        price: item.product.price,
         quantity: item.quantity,
-        kit_type: item.kit_type,
-        images: item.images,
+        kit_type: item.product.kit_type,
+        images: item.product.images,
       }));
+
+      console.log('Checkout items being sent:', checkoutItems);
 
       // Create checkout session
       const response = await fetch('/api/checkout', {

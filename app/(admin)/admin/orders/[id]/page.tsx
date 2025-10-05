@@ -225,6 +225,20 @@ export default function OrderDetailPage() {
                 <p className="text-lg">{order.email}</p>
               </div>
               
+              {order.customer_name && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Customer Name</label>
+                  <p className="text-lg">{order.customer_name}</p>
+                </div>
+              )}
+              
+              {order.phone && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Phone</label>
+                  <p className="text-lg">{order.phone}</p>
+                </div>
+              )}
+              
               {order.shipping_address && (
                 <div>
                   <label className="text-sm font-medium text-gray-600">Shipping Address</label>
@@ -235,6 +249,21 @@ export default function OrderDetailPage() {
                       {order.shipping_address.line2 && <p>{order.shipping_address.line2}</p>}
                       <p>{order.shipping_address.city}, {order.shipping_address.state} {order.shipping_address.postal_code}</p>
                       <p>{order.shipping_address.country}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {order.billing_address && (
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Billing Address</label>
+                  <div className="flex items-start mt-1">
+                    <CreditCard className="w-4 h-4 mr-2 mt-1 text-gray-400" />
+                    <div>
+                      <p>{order.billing_address.line1}</p>
+                      {order.billing_address.line2 && <p>{order.billing_address.line2}</p>}
+                      <p>{order.billing_address.city}, {order.billing_address.state} {order.billing_address.postal_code}</p>
+                      <p>{order.billing_address.country}</p>
                     </div>
                   </div>
                 </div>

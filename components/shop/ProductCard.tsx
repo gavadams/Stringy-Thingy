@@ -58,8 +58,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
       transition={{ duration: 0.5, delay: index * 0.1 }}
       className="group"
     >
-      <Link href={`/shop/${product.id}`}>
-        <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-lg cursor-pointer">
+      <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-lg cursor-pointer">
         {/* Most Popular Badge */}
         {isMostPopular && (
           <div className="absolute top-4 left-4 z-10">
@@ -198,7 +197,6 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
           </div>
         </CardContent>
       </Card>
-      </Link>
     </motion.div>
   );
 }

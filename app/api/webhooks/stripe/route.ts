@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe/client';
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 import { generateKitCodes } from '@/lib/codes/generator';
 import { sendOrderConfirmation } from '@/lib/email/send';
 
 export async function POST(request: NextRequest) {
+  console.log('Webhook received!');
   const body = await request.text();
   const signature = request.headers.get('stripe-signature');
+
+  console.log('Webhook signature:', signature ? 'Present' : 'Missing');
+  console.log('Webhook body length:', body.length);
 
   if (!signature) {
     console.error('No Stripe signature found');
@@ -54,6 +58,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Error processing webhook:', error);
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined,
+      event: event?.type
+    });
     return NextResponse.json(
       { error: 'Webhook processing failed' },
       { status: 500 }
@@ -63,9 +72,14 @@ export async function POST(request: NextRequest) {
 
 async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string; metadata: { productIds: string; kitTypes: string; quantities: string; totalItems: string }; payment_intent: string; shipping_details?: { address: Record<string, unknown> }; customer_details?: { address: Record<string, unknown> } }) {
   console.log('Processing checkout session completed:', session.id);
+  console.log('Session metadata:', session.metadata);
+  console.log('Customer email:', session.customer_email);
 
-  try {
-    const supabase = createClient();
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
 
     // Extract order details from session metadata
     const {
@@ -108,17 +122,21 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
         email: session.customer_email,
         stripe_session_id: session.id,
         stripe_payment_intent_id: session.payment_intent,
-        total: total,
+        total_amount: total,
         status: 'paid',
-        shipping_address: session.shipping_details?.address,
-        billing_address: session.customer_details?.address,
-        products: products.map((product, index) => ({
+        customer_name: session.customer_details?.name || null,
+        phone: session.customer_details?.phone || null,
+        shipping_address: session.shipping_details?.address || null,
+        billing_address: session.customer_details?.address || null,
+        order_items: products.map((product, index) => ({
           id: product.id,
           name: product.name,
           kit_type: product.kit_type,
           quantity: quantityArray[index],
-          price: product.price
-        }))
+          price: product.price,
+          image: product.images?.[0] || null
+        })),
+        notes: 'Order created via Stripe webhook'
       })
       .select()
       .single();
@@ -189,6 +207,12 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
     console.log('Successfully processed order:', order.id);
   } catch (error) {
     console.error('Error processing checkout session:', error);
+    console.error('Session details:', {
+      id: session.id,
+      customer_email: session.customer_email,
+      metadata: session.metadata
+    });
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace');
     throw error;
   }
 }
