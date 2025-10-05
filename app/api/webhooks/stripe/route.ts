@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> } | null; customer_details?: { name?: string; phone?: string; address?: Record<string, unknown> } | null }) {
+async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> } | null; customer_details?: { name?: string | null; phone?: string | null; address?: Record<string, unknown> } | null }) {
   console.log('Processing checkout session completed:', session.id);
   console.log('Session metadata:', session.metadata);
   console.log('Customer email:', session.customer_email);
@@ -98,16 +98,16 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
     ? session.payment_intent 
     : session.payment_intent.id;
 
-      try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        );
+  try {
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    );
 
     // Extract order details from session metadata
-    const productIds = session.metadata?.productIds;
-    const kitTypes = session.metadata?.kitTypes;
-    const quantities = session.metadata?.quantities;
+    const productIds = session.metadata.productIds;
+    const kitTypes = session.metadata.kitTypes;
+    const quantities = session.metadata.quantities;
 
     if (!productIds || !kitTypes || !quantities) {
       throw new Error('Missing required metadata in session');
@@ -145,8 +145,8 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
         stripe_payment_intent_id: paymentIntentId,
         total_amount: total,
         status: 'paid',
-        customer_name: session.customer_details?.name || null,
-        phone: session.customer_details?.phone || null,
+        customer_name: session.customer_details?.name ?? null,
+        phone: session.customer_details?.phone ?? null,
         shipping_address: session.shipping_details?.address || null,
         billing_address: session.customer_details?.address || null,
         order_items: products.map((product, index) => ({
@@ -155,7 +155,7 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
           kit_type: product.kit_type,
           quantity: quantityArray[index],
           price: product.price,
-          image: product.images?.[0] || null
+          image: (product.images && product.images.length > 0) ? product.images[0] : null
         })),
         notes: 'Order created via Stripe webhook'
       })
