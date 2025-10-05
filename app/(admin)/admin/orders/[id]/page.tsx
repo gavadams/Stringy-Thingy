@@ -37,12 +37,6 @@ export default function OrderDetailPage() {
   const [addingNote, setAddingNote] = useState(false);
   const [updatingStatus, setUpdatingStatus] = useState(false);
 
-  useEffect(() => {
-    if (orderId) {
-      fetchOrder();
-    }
-  }, [orderId, fetchOrder]);
-
   const fetchOrder = useCallback(async () => {
     try {
       setLoading(true);
@@ -66,6 +60,12 @@ export default function OrderDetailPage() {
       setLoading(false);
     }
   }, [orderId]);
+
+  useEffect(() => {
+    if (orderId) {
+      fetchOrder();
+    }
+  }, [orderId, fetchOrder]);
 
   const updateOrderStatus = async (newStatus: string) => {
     try {
