@@ -36,6 +36,14 @@ async function ProductsTable() {
     .select('*')
     .order('created_at', { ascending: false });
 
+  // Debug: Log product data to see if images are being saved
+  console.log('Products data:', products?.map(p => ({ 
+    id: p.id, 
+    name: p.name, 
+    images: p.images,
+    imagesLength: p.images?.length || 0 
+  })));
+
   if (error) {
     return (
       <div className="text-center py-12">

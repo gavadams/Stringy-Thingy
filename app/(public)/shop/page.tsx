@@ -17,6 +17,14 @@ interface ShopPageProps {
 async function ProductsGrid({ searchParams }: { searchParams: { type?: string; sort?: string; view?: string; } }) {
   const { data: allProducts, error } = await getAllProducts();
 
+  // Debug: Log product data to see if images are being saved
+  console.log('Shop products data:', allProducts?.map(p => ({ 
+    id: p.id, 
+    name: p.name, 
+    images: p.images,
+    imagesLength: p.images?.length || 0 
+  })));
+
   if (error) {
     return (
       <div className="text-center py-12">

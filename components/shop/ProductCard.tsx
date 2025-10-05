@@ -27,7 +27,10 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
   const isOutOfStock = product.stock === 0;
   const isMostPopular = product.kit_type === 'standard';
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
     if (isOutOfStock) return;
     
     setIsLoading(true);
@@ -55,7 +58,8 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
       transition={{ duration: 0.5, delay: index * 0.1 }}
       className="group"
     >
-      <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-lg">
+      <Link href={`/shop/${product.id}`}>
+        <Card className="relative overflow-hidden hover:shadow-xl transition-all duration-300 border-0 shadow-lg cursor-pointer">
         {/* Most Popular Badge */}
         {isMostPopular && (
           <div className="absolute top-4 left-4 z-10">
@@ -78,7 +82,22 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
 
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden bg-gradient-to-br from-purple-100 to-pink-100">
-          <div className="absolute inset-0 flex items-center justify-center">
+          {product.images && product.images.length > 0 ? (
+            <img
+              src={product.images[0]}
+              alt={product.name}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+              onError={(e) => {
+                console.error('Image failed to load:', product.images[0]);
+                // Fallback to placeholder
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          
+          {/* Fallback placeholder */}
+          <div className={`absolute inset-0 flex items-center justify-center ${product.images && product.images.length > 0 ? 'hidden' : ''}`}>
             <div className="text-center">
               <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-200 to-pink-200 rounded-full flex items-center justify-center">
                 <ShoppingCart className="w-8 h-8 text-purple-600" />
@@ -179,6 +198,7 @@ export default function ProductCard({ product, index = 0 }: ProductCardProps) {
           </div>
         </CardContent>
       </Card>
+      </Link>
     </motion.div>
   );
 }
