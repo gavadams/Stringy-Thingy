@@ -17,7 +17,7 @@ export default function Header() {
   const [profile, setProfile] = useState<{ role: string } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
-  const { getItemCount, openCart, clearCart, setUserId, loadUserCart, saveUserCart } = useCartStore();
+  const { getItemCount, openCart, clearCart, setUserId, loadUserCart } = useCartStore();
 
   const supabase = createClient();
   const cartItemCount = getItemCount();
