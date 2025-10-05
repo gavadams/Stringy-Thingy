@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
+import Link from "next/link";
 
 function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
