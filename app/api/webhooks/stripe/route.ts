@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> }; customer_details?: { address: Record<string, unknown> } }) {
+async function handleCheckoutSessionCompleted(session: { id: string; customer_email: string | null; metadata: Record<string, string> | null; payment_intent: string | { id: string } | null; shipping_details?: { address: Record<string, unknown> } | null; customer_details?: { name?: string; phone?: string; address?: Record<string, unknown> } | null }) {
   console.log('Processing checkout session completed:', session.id);
   console.log('Session metadata:', session.metadata);
   console.log('Customer email:', session.customer_email);
@@ -120,7 +120,7 @@ async function handleCheckoutSessionCompleted(session: { id: string; customer_em
     // Get product details from database
     const { data: products, error: productsError } = await supabase
       .from('products')
-      .select('id, name, price, kit_type')
+      .select('id, name, price, kit_type, images')
       .in('id', productIdArray);
 
     if (productsError) {
