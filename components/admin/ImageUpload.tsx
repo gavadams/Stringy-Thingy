@@ -62,10 +62,13 @@ export default function ImageUpload({
         setUploadProgress(progress);
 
         const result = await uploadImage(file, bucket, folder);
+        console.log('Upload result:', result);
         
         if (result.success && result.url) {
+          console.log('Image URL:', result.url);
           newImages.push(result.url);
         } else {
+          console.error('Upload failed:', result.error);
           toast.error(`Failed to upload ${file.name}: ${result.error}`);
         }
       }

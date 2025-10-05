@@ -64,16 +64,21 @@ export default function NewProductPage() {
         images: formData.images
       };
 
-      const { error } = await supabase
+      console.log('Product data being saved:', productData);
+      
+      const { data, error } = await supabase
         .from('products')
         .insert(productData)
         .select()
         .single();
 
       if (error) {
+        console.error('Database error:', error);
         toast.error("Failed to create product: " + error.message);
         return;
       }
+      
+      console.log('Product created successfully:', data);
 
       toast.success("Product created successfully!");
       router.push("/admin/products");
