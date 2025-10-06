@@ -31,11 +31,7 @@ interface OrderDetails {
     quantity: number;
     price: number;
   }>;
-  kit_codes: Array<{
-    code: string;
-    kit_type: string;
-    max_generations: number;
-  }>;
+  kit_codes: string[];
 }
 
 function CheckoutSuccessContent() {
@@ -256,20 +252,20 @@ function CheckoutSuccessContent() {
                 </p>
                 
                 <div className="space-y-3">
-                  {order.kit_codes.map((kit, index) => (
+                  {order.kit_codes.map((code, index) => (
                     <div key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                       <div>
                         <div className="font-mono font-semibold text-lg">
-                          {kit.code}
+                          {code}
                         </div>
                         <div className="text-sm text-gray-600">
-                          {kit.kit_type} • {kit.max_generations} generations
+                          Kit Code {index + 1}
                         </div>
                       </div>
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => copyToClipboard(kit.code)}
+                        onClick={() => copyToClipboard(code)}
                         className="ml-2"
                       >
                         <Copy className="w-4 h-4" />
