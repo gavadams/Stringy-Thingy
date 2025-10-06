@@ -26,8 +26,28 @@ export interface OrderDetails {
 
 export async function sendOrderConfirmation(orderDetails: OrderDetails) {
   try {
+    console.log('📧 Attempting to send email to:', orderDetails.email);
+    console.log('📧 Order details:', {
+      orderId: orderDetails.orderId,
+      total: orderDetails.total,
+      productsCount: orderDetails.products.length,
+      kitCodesCount: orderDetails.kitCodes.length
+    });
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(orderDetails.email)) {
+      throw new Error(`Invalid email format: ${orderDetails.email}`);
+    }
+
+    // Use a verified domain or fallback to a simple email
+    const fromEmail = 'Stringy-Thingy <onboarding@resend.dev>'; // Use Resend's default domain for testing
+    
+    console.log('📧 Sending email from:', fromEmail);
+    console.log('📧 Sending email to:', orderDetails.email);
+
     const { data, error } = await resend.emails.send({
-      from: 'Stringy-Thingy <orders@stringy-thingy.com>',
+      from: fromEmail,
       to: [orderDetails.email],
       subject: `🎨 Your Stringy-Thingy Order is Confirmed! #${orderDetails.orderId.slice(-8).toUpperCase()}`,
       react: OrderConfirmationEmail({
@@ -39,14 +59,14 @@ export async function sendOrderConfirmation(orderDetails: OrderDetails) {
     });
 
     if (error) {
-      console.error('Resend error:', error);
-      throw new Error(`Failed to send email: ${error.message}`);
+      console.error('❌ Resend error:', error);
+      throw new Error(`Failed to send email: ${JSON.stringify(error)}`);
     }
 
-    console.log('Order confirmation email sent:', data);
+    console.log('✅ Order confirmation email sent successfully:', data);
     return { success: true, messageId: data?.id };
   } catch (error) {
-    console.error('Error sending order confirmation email:', error);
+    console.error('❌ Error sending order confirmation email:', error);
     throw error;
   }
 }
