@@ -134,7 +134,7 @@ export default function OrderDetailPage() {
       setAddingNote(true);
       const supabase = createClient();
       
-      const currentNotes = order?.notes || [];
+      const currentNotes = Array.isArray(order?.notes) ? order.notes : [];
       const newNoteObj = {
         text: newNote.trim(),
         added_at: new Date().toISOString(),
@@ -385,7 +385,7 @@ export default function OrderDetailPage() {
               <CardTitle>Order Notes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {order.notes && order.notes.length > 0 ? (
+              {order.notes && Array.isArray(order.notes) && order.notes.length > 0 ? (
                 <div className="space-y-3">
                   {order.notes.map((note: { text: string; added_at: string; added_by?: string }, index: number) => (
                     <div key={index} className="p-3 bg-gray-50 rounded-lg">

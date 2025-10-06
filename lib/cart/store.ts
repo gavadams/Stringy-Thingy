@@ -1,7 +1,7 @@
 "use client";
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { Database } from '@/types/database.types';
 
 type Product = Database['public']['Tables']['products']['Row'];
@@ -38,6 +38,37 @@ interface CartStore {
   getItemCount: () => number;
   getItemQuantity: (productId: string) => number;
 }
+
+// Custom storage that respects the cleared flag
+const customStorage = {
+  getItem: (name: string) => {
+    try {
+      const wasCleared = localStorage.getItem('cart-cleared-after-purchase');
+      if (wasCleared === 'true') {
+        console.log('Cart was cleared after purchase, returning empty state');
+        return JSON.stringify({ state: { items: [] }, version: 0 });
+      }
+      return localStorage.getItem(name);
+    } catch (error) {
+      console.error('Error getting cart from storage:', error);
+      return null;
+    }
+  },
+  setItem: (name: string, value: string) => {
+    try {
+      localStorage.setItem(name, value);
+    } catch (error) {
+      console.error('Error setting cart in storage:', error);
+    }
+  },
+  removeItem: (name: string) => {
+    try {
+      localStorage.removeItem(name);
+    } catch (error) {
+      console.error('Error removing cart from storage:', error);
+    }
+  },
+};
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -246,7 +277,10 @@ export const useCartStore = create<CartStore>()(
         // Clear localStorage first to prevent any restore
         try {
           localStorage.removeItem('cart-storage');
-          console.log('Cart storage cleared from localStorage after purchase');
+          // Also clear any other potential cart storage keys
+          localStorage.removeItem('cart');
+          localStorage.removeItem('shopping-cart');
+          console.log('All cart storage cleared from localStorage after purchase');
         } catch (error) {
           console.error('Error clearing cart from localStorage after purchase:', error);
         }
@@ -257,11 +291,20 @@ export const useCartStore = create<CartStore>()(
         // Force a re-render by updating a non-persisted field
         set((state) => ({ ...state, isOpen: false }));
         
+        // Set a flag to prevent restoration
+        try {
+          localStorage.setItem('cart-cleared-after-purchase', 'true');
+          console.log('Cart cleared flag set');
+        } catch (error) {
+          console.error('Error setting cart cleared flag:', error);
+        }
+        
         console.log('Cart cleared after purchase, final items:', get().items.length);
       },
     }),
     {
       name: 'cart-storage',
+      storage: createJSONStorage(() => customStorage),
       partialize: (state) => ({ items: state.items }),
     }
   )
