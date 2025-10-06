@@ -54,24 +54,36 @@ export default function Cart() {
   };
 
   const handleCheckout = async () => {
+    console.log('Checkout button clicked, items:', items.length);
+    
     if (items.length === 0) {
       toast.error('Your cart is empty');
       return;
     }
 
-    // Check if user is logged in
-    const { data: { user } } = await import('@/lib/supabase/client').then(m => m.createClient().auth.getUser());
-    
-    if (!user) {
-      // Show email input for guest checkout
-      setShowEmailInput(true);
-      return;
-    }
+    try {
+      // Check if user is logged in
+      const { data: { user } } = await import('@/lib/supabase/client').then(m => m.createClient().auth.getUser());
+      
+      console.log('User check result:', { user: !!user, email: user?.email });
+      
+      if (!user) {
+        // Show email input for guest checkout
+        setShowEmailInput(true);
+        return;
+      }
 
-    await proceedToCheckout(user.email || '');
+      await proceedToCheckout(user.email || '');
+    } catch (error) {
+      console.error('Error in handleCheckout:', error);
+      toast.error('Failed to check user authentication');
+    }
   };
 
   const proceedToCheckout = async (email: string) => {
+    console.log('proceedToCheckout called with email:', email);
+    console.log('Cart items:', items);
+    
     try {
       setIsCheckingOut(true);
       
@@ -194,7 +206,7 @@ export default function Cart() {
                         {item.product.name}
                       </h4>
                       <p className="text-sm text-gray-600 mb-2">
-                        {item.product.kit_type} • {item.product.frame_size}
+                        {item.product.kit_type} • {item.product.frame_size || 'Standard'}
                       </p>
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-gray-900">
