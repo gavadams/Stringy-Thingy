@@ -86,8 +86,19 @@ function CheckoutSuccessContent() {
       setError(null);
       
       // Clear the cart since the order was successful
-      clearCart();
-      console.log('Cart cleared after successful order');
+      console.log('About to clear cart, current cart state:', { 
+        items: useCartStore.getState().items.length,
+        total: useCartStore.getState().getTotal()
+      });
+      
+      // Clear cart with a small delay to ensure state is updated
+      setTimeout(() => {
+        clearCart();
+        console.log('Cart cleared after successful order, new state:', { 
+          items: useCartStore.getState().items.length,
+          total: useCartStore.getState().getTotal()
+        });
+      }, 100);
     } catch (err) {
       console.error('Error fetching order details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load order details');

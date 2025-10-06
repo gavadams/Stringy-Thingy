@@ -249,7 +249,7 @@ export default function AdminOrdersPage() {
                     <TableCell>
                       <div className="flex items-center font-semibold">
                         <DollarSign className="w-4 h-4 mr-1" />
-                        {order.total.toFixed(2)}
+                        ${order.total_amount?.toFixed(2) || '0.00'}
                       </div>
                     </TableCell>
                     <TableCell>

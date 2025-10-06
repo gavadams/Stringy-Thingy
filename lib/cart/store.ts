@@ -116,7 +116,18 @@ export const useCartStore = create<CartStore>()(
       },
 
       clearCart: () => {
+        console.log('Clearing cart, current items:', get().items.length);
         set({ items: [] });
+        
+        // Also clear from localStorage to ensure persistence is cleared
+        try {
+          localStorage.removeItem('cart-storage');
+          console.log('Cart storage cleared from localStorage');
+        } catch (error) {
+          console.error('Error clearing cart from localStorage:', error);
+        }
+        
+        console.log('Cart cleared, new items:', get().items.length);
       },
 
       toggleCart: () => {
