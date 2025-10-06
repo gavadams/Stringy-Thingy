@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useCartStore } from '@/lib/cart/store';
 
 interface OrderDetails {
   id: string;
@@ -40,6 +41,8 @@ interface OrderDetails {
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
+  const { clearCart } = useCartStore();
+  
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -85,6 +88,10 @@ function CheckoutSuccessContent() {
       setOrder(data);
       setLoading(false);
       setError(null);
+      
+      // Clear the cart since the order was successful
+      clearCart();
+      console.log('Cart cleared after successful order');
     } catch (err) {
       console.error('Error fetching order details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load order details');
