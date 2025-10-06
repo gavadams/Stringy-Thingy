@@ -58,9 +58,13 @@ function CheckoutSuccessContent() {
     const MAX_RETRIES = 6;
     const RETRY_DELAY = 2000; // 2 seconds
 
+    console.log(`Fetching order details for session: ${sessionId}, retry: ${currentRetry}`);
+
     try {
       const response = await fetch(`/api/orders/session/${sessionId}`);
       const data = await response.json();
+
+      console.log('API response:', { status: response.status, data });
 
       if (!response.ok) {
         if (response.status === 404 && currentRetry < MAX_RETRIES) {
@@ -76,6 +80,7 @@ function CheckoutSuccessContent() {
         
         if (response.status === 404) {
           // Max retries reached
+          console.log('Max retries reached, showing processing message');
           setError('Your payment is being processed. Please check your email for confirmation or refresh this page in a moment.');
           setLoading(false);
           return;
@@ -85,6 +90,7 @@ function CheckoutSuccessContent() {
       }
 
       // Success! Order found
+      console.log('Order found successfully:', data);
       setOrder(data);
       setLoading(false);
       setError(null);

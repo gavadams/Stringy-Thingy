@@ -63,6 +63,7 @@ export async function getOrderById(id: string): Promise<{ data: OrderWithDetails
 
 export async function getOrderBySessionId(sessionId: string): Promise<{ data: OrderWithDetails | null; error: string | null }> {
   try {
+    console.log('Querying orders for sessionId:', sessionId);
     const supabase = createClient();
     
     // Query without .single() to avoid error when no results found
@@ -71,6 +72,8 @@ export async function getOrderBySessionId(sessionId: string): Promise<{ data: Or
       .select('*')
       .eq('stripe_session_id', sessionId);
 
+    console.log('Supabase query result:', { ordersCount: orders?.length, error });
+
     if (error) {
       console.error('Error fetching order by session ID:', error);
       return { data: null, error: error.message };
@@ -78,6 +81,7 @@ export async function getOrderBySessionId(sessionId: string): Promise<{ data: Or
 
     // Handle no results
     if (!orders || orders.length === 0) {
+      console.log('No orders found for sessionId:', sessionId);
       return { data: null, error: null };
     }
 

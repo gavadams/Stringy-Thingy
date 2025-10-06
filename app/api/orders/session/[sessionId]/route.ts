@@ -8,6 +8,8 @@ export async function GET(
   try {
     const { sessionId } = await params;
 
+    console.log('Orders API called with sessionId:', sessionId);
+
     if (!sessionId) {
       return NextResponse.json(
         { error: 'Session ID is required' },
@@ -17,7 +19,10 @@ export async function GET(
 
     const { data, error } = await getOrderBySessionId(sessionId);
 
+    console.log('Order query result:', { data: !!data, error });
+
     if (error) {
+      console.error('Order query error:', error);
       return NextResponse.json(
         { error },
         { status: 500 }
@@ -25,6 +30,7 @@ export async function GET(
     }
 
     if (!data) {
+      console.log('No order found for session:', sessionId);
       return NextResponse.json(
         { 
           error: 'Order not found. The webhook may still be processing your payment.',
@@ -34,6 +40,7 @@ export async function GET(
       );
     }
 
+    console.log('Order found, returning data');
     return NextResponse.json(data);
   } catch (error) {
     console.error('Error fetching order by session ID:', error);
