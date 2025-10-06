@@ -37,7 +37,7 @@ interface OrderDetails {
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
-  const { clearCart } = useCartStore();
+  const { clearCartAfterPurchase } = useCartStore();
   
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -91,14 +91,16 @@ function CheckoutSuccessContent() {
         total: useCartStore.getState().getTotal()
       });
       
-      // Clear cart with a small delay to ensure state is updated
+      // Clear cart immediately to prevent any restore
+      clearCartAfterPurchase();
+      
+      // Verify cart is cleared after a short delay
       setTimeout(() => {
-        clearCart();
-        console.log('Cart cleared after successful order, new state:', { 
+        console.log('Cart cleared after successful order, final state:', { 
           items: useCartStore.getState().items.length,
           total: useCartStore.getState().getTotal()
         });
-      }, 100);
+      }, 200);
     } catch (err) {
       console.error('Error fetching order details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load order details');

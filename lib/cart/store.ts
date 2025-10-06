@@ -31,6 +31,7 @@ interface CartStore {
   loadUserCart: (userId: string) => Promise<void>;
   saveUserCart: (userId: string) => Promise<void>;
   clearAnonymousCart: () => void;
+  clearCartAfterPurchase: () => void;
   
   // Computed values
   getTotal: () => number;
@@ -117,9 +118,8 @@ export const useCartStore = create<CartStore>()(
 
       clearCart: () => {
         console.log('Clearing cart, current items:', get().items.length);
-        set({ items: [] });
         
-        // Also clear from localStorage to ensure persistence is cleared
+        // Clear from localStorage first to prevent restore
         try {
           localStorage.removeItem('cart-storage');
           console.log('Cart storage cleared from localStorage');
@@ -127,7 +127,13 @@ export const useCartStore = create<CartStore>()(
           console.error('Error clearing cart from localStorage:', error);
         }
         
-        console.log('Cart cleared, new items:', get().items.length);
+        // Then clear the state
+        set({ items: [] });
+        
+        // Force a small delay to ensure the state is properly cleared
+        setTimeout(() => {
+          console.log('Cart cleared, final items:', get().items.length);
+        }, 50);
       },
 
       toggleCart: () => {
@@ -232,6 +238,26 @@ export const useCartStore = create<CartStore>()(
         } catch (error) {
           console.error('Error clearing anonymous cart:', error);
         }
+      },
+
+      clearCartAfterPurchase: () => {
+        console.log('Clearing cart after purchase, current items:', get().items.length);
+        
+        // Clear localStorage first to prevent any restore
+        try {
+          localStorage.removeItem('cart-storage');
+          console.log('Cart storage cleared from localStorage after purchase');
+        } catch (error) {
+          console.error('Error clearing cart from localStorage after purchase:', error);
+        }
+        
+        // Clear the state
+        set({ items: [] });
+        
+        // Force a re-render by updating a non-persisted field
+        set((state) => ({ ...state, isOpen: false }));
+        
+        console.log('Cart cleared after purchase, final items:', get().items.length);
       },
     }),
     {

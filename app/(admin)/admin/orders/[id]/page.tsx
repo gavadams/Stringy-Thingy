@@ -338,7 +338,7 @@ export default function OrderDetailPage() {
                   <span>Total</span>
                   <span className="flex items-center">
                     <DollarSign className="w-4 h-4 mr-1" />
-                    {order.total.toFixed(2)}
+                    ${order.total_amount?.toFixed(2) || '0.00'}
                   </span>
                 </div>
               </div>
@@ -477,7 +477,7 @@ export default function OrderDetailPage() {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Amount</label>
-                <p className="text-lg font-semibold">${order.total.toFixed(2)}</p>
+                <p className="text-lg font-semibold">${order.total_amount?.toFixed(2) || '0.00'}</p>
               </div>
             </CardContent>
           </Card>
