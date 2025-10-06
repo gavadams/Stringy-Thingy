@@ -64,18 +64,35 @@ export async function getOrderById(id: string): Promise<{ data: OrderWithDetails
 export async function getOrderBySessionId(sessionId: string): Promise<{ data: OrderWithDetails | null; error: string | null }> {
   try {
     const supabase = createClient();
-    const { data, error } = await supabase
+    
+    // Query without .single() to avoid error when no results found
+    const { data: orders, error } = await supabase
       .from('orders')
       .select('*')
-      .eq('stripe_session_id', sessionId)
-      .single();
+      .eq('stripe_session_id', sessionId);
 
     if (error) {
       console.error('Error fetching order by session ID:', error);
       return { data: null, error: error.message };
     }
 
-    return { data: data as OrderWithDetails, error: null };
+    // Handle no results
+    if (!orders || orders.length === 0) {
+      return { data: null, error: null };
+    }
+
+    // Handle multiple results (shouldn't happen, but be safe)
+    if (orders.length > 1) {
+      console.warn(`Multiple orders found for session ${sessionId}, returning most recent`);
+      const sortedOrders = orders.sort((a, b) => 
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      return { data: sortedOrders[0] as OrderWithDetails, error: null };
+    }
+
+    // Return single order
+    return { data: orders[0] as OrderWithDetails, error: null };
+
   } catch (error) {
     console.error('Exception fetching order by session ID:', error);
     return { 
