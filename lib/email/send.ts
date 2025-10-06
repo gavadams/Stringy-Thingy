@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { render } from '@react-email/render';
 import { OrderConfirmationEmail } from './templates';
 
 if (!process.env.RESEND_API_KEY) {
@@ -46,16 +47,18 @@ export async function sendOrderConfirmation(orderDetails: OrderDetails) {
     console.log('📧 Sending email from:', fromEmail);
     console.log('📧 Sending email to:', orderDetails.email);
 
+    const emailHtml = render(OrderConfirmationEmail({
+      orderId: orderDetails.orderId,
+      total: orderDetails.total,
+      products: orderDetails.products,
+      kitCodes: orderDetails.kitCodes
+    }));
+
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: [orderDetails.email],
       subject: `🎨 Your Stringy-Thingy Order is Confirmed! #${orderDetails.orderId.slice(-8).toUpperCase()}`,
-      react: OrderConfirmationEmail({
-        orderId: orderDetails.orderId,
-        total: orderDetails.total,
-        products: orderDetails.products,
-        kitCodes: orderDetails.kitCodes
-      }),
+      html: emailHtml,
     });
 
     if (error) {
