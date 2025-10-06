@@ -47,7 +47,7 @@ export async function sendOrderConfirmation(orderDetails: OrderDetails) {
     console.log('📧 Sending email from:', fromEmail);
     console.log('📧 Sending email to:', orderDetails.email);
 
-    const emailHtml = render(OrderConfirmationEmail({
+    const emailHtml = await render(OrderConfirmationEmail({
       orderId: orderDetails.orderId,
       total: orderDetails.total,
       products: orderDetails.products,
