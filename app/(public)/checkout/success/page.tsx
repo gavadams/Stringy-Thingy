@@ -20,11 +20,11 @@ import { toast } from 'sonner';
 interface OrderDetails {
   id: string;
   email: string;
-  total: number;
+  total_amount: number;
   status: string;
   created_at: string;
   stripe_session_id: string;
-  products: Array<{
+  order_items: Array<{
     name: string;
     kit_type: string;
     quantity: number;
@@ -209,7 +209,7 @@ function CheckoutSuccessContent() {
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Total:</span>
-                <span className="font-semibold">${order.total.toFixed(2)}</span>
+                <span className="font-semibold">${order.total_amount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Status:</span>
@@ -223,7 +223,7 @@ function CheckoutSuccessContent() {
               <div>
                 <h4 className="font-semibold mb-2">Products Ordered:</h4>
                 <div className="space-y-2">
-                  {order.products.map((product, index) => (
+                  {order.order_items.map((product, index) => (
                     <div key={index} className="flex justify-between text-sm">
                       <span>{product.name} ({product.kit_type})</span>
                       <span>×{product.quantity}</span>
