@@ -6,6 +6,15 @@ export async function POST(request: NextRequest) {
   try {
     const { items, customerEmail } = await request.json();
 
+    // Get the origin from the request (works in all environments automatically)
+    const origin = request.headers.get('origin') || 
+                   request.headers.get('referer')?.replace(/\/$/, '').split('?')[0].split('#')[0] ||
+                   (request.headers.get('host') ? `https://${request.headers.get('host')}` : null) ||
+                   process.env.NEXT_PUBLIC_SITE_URL || 
+                   'http://localhost:3000';
+
+    console.log('Detected origin for checkout URLs:', origin);
+
     // Validate request
     if (!items || !Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
@@ -67,12 +76,12 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create checkout session
+    // Create checkout session with automatically detected URLs
     const result = await createCheckoutSession({
       items,
       customerEmail,
-      successUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancelUrl: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/checkout/cancel`,
+      successUrl: `${origin}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancelUrl: `${origin}/checkout/cancel`,
     });
 
     if (!result.success) {
