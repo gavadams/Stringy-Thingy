@@ -11,7 +11,8 @@ import {
   Mail, 
   Copy, 
   ArrowRight,
-  Package
+  Package,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
@@ -42,35 +43,54 @@ function CheckoutSuccessContent() {
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
     if (sessionId) {
-      fetchOrderDetails(sessionId);
+      fetchOrderDetails(sessionId, 0);
     } else {
       setError('No session ID provided');
       setLoading(false);
     }
   }, [sessionId]);
 
-  const fetchOrderDetails = async (sessionId: string) => {
+  const fetchOrderDetails = async (sessionId: string, currentRetry: number) => {
+    const MAX_RETRIES = 6;
+    const RETRY_DELAY = 2000; // 2 seconds
+
     try {
       const response = await fetch(`/api/orders/session/${sessionId}`);
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 404) {
+        if (response.status === 404 && currentRetry < MAX_RETRIES) {
           // Order not found yet, webhook may still be processing
-          setError('Your payment is being processed. Please check back in a few minutes or check your email for confirmation.');
+          console.log(`Order not found, retrying in ${RETRY_DELAY}ms... (${currentRetry + 1}/${MAX_RETRIES})`);
+          setRetryCount(currentRetry + 1);
+          
+          setTimeout(() => {
+            fetchOrderDetails(sessionId, currentRetry + 1);
+          }, RETRY_DELAY);
           return;
         }
+        
+        if (response.status === 404) {
+          // Max retries reached
+          setError('Your payment is being processed. Please check your email for confirmation or refresh this page in a moment.');
+          setLoading(false);
+          return;
+        }
+        
         throw new Error(data.error || 'Failed to fetch order details');
       }
 
+      // Success! Order found
       setOrder(data);
+      setLoading(false);
+      setError(null);
     } catch (err) {
       console.error('Error fetching order details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load order details');
-    } finally {
       setLoading(false);
     }
   };
@@ -80,12 +100,24 @@ function CheckoutSuccessContent() {
     toast.success('Copied to clipboard!');
   };
 
+  const handleRetry = () => {
+    if (sessionId) {
+      setLoading(true);
+      setError(null);
+      setRetryCount(0);
+      fetchOrderDetails(sessionId, 0);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-8 h-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading your order details...</p>
+          <Loader2 className="w-12 h-12 animate-spin text-purple-600 mx-auto mb-4" />
+          <p className="text-gray-900 font-semibold mb-2">Processing your order...</p>
+          <p className="text-gray-600 text-sm">
+            {retryCount > 0 ? `Checking... (${retryCount}/6)` : 'Loading your order details...'}
+          </p>
         </div>
       </div>
     );
@@ -97,20 +129,28 @@ function CheckoutSuccessContent() {
         <Card className="w-full max-w-md">
           <CardContent className="pt-6">
             <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Package className="w-8 h-8 text-red-600" />
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-yellow-600" />
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">
-                Order Not Found
+                Processing Payment
               </h1>
               <p className="text-gray-600 mb-6">
                 {error || 'We couldn\'t find your order details.'}
               </p>
-              <Button asChild>
-                <Link href="/shop">
-                  Return to Shop
-                </Link>
-              </Button>
+              <div className="space-y-3">
+                <Button onClick={handleRetry} className="w-full">
+                  Refresh Order Status
+                </Button>
+                <Button asChild variant="outline" className="w-full">
+                  <Link href="/shop">
+                    Return to Shop
+                  </Link>
+                </Button>
+              </div>
+              <p className="text-xs text-gray-500 mt-4">
+                Your order confirmation will be sent to your email shortly.
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -265,7 +305,7 @@ export default function CheckoutSuccessPage() {
       fallback={
         <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-50 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-8 h-8 animate-spin rounded-full border-2 border-purple-600 border-t-transparent mx-auto mb-4"></div>
+            <Loader2 className="w-8 h-8 animate-spin text-purple-600 mx-auto mb-4" />
             <p className="text-gray-600">Loading...</p>
           </div>
         </div>
