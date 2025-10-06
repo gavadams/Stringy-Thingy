@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, useCallback } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -45,16 +45,7 @@ function CheckoutSuccessContent() {
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  useEffect(() => {
-    if (sessionId) {
-      fetchOrderDetails(sessionId, 0);
-    } else {
-      setError('No session ID provided');
-      setLoading(false);
-    }
-  }, [sessionId]);
-
-  const fetchOrderDetails = async (sessionId: string, currentRetry: number) => {
+  const fetchOrderDetails = useCallback(async (sessionId: string, currentRetry: number) => {
     const MAX_RETRIES = 6;
     const RETRY_DELAY = 2000; // 2 seconds
 
@@ -99,7 +90,16 @@ function CheckoutSuccessContent() {
       setError(err instanceof Error ? err.message : 'Failed to load order details');
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (sessionId) {
+      fetchOrderDetails(sessionId, 0);
+    } else {
+      setError('No session ID provided');
+      setLoading(false);
+    }
+  }, [sessionId, fetchOrderDetails]);
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);

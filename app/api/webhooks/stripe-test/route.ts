@@ -30,7 +30,23 @@ export async function POST(request: NextRequest) {
   }
 }
 
-async function handleCheckoutSessionCompleted(session: any) {
+async function handleCheckoutSessionCompleted(session: {
+  id: string;
+  customer_email: string;
+  amount_total: number;
+  payment_intent: string | { id: string };
+  metadata: {
+    productIds: string;
+    kitTypes: string;
+    quantities: string;
+  };
+  customer_details?: {
+    name?: string;
+    email?: string;
+    phone?: string;
+    address?: Record<string, unknown>;
+  };
+}) {
   console.log('🎯 Processing test checkout session completed:', session.id);
   console.log('📧 Customer email:', session.customer_email);
   console.log('💰 Amount total:', session.amount_total);
