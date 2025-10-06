@@ -106,7 +106,7 @@ function CheckoutSuccessContent() {
       setError(err instanceof Error ? err.message : 'Failed to load order details');
       setLoading(false);
     }
-  }, [clearCart]);
+  }, [clearCartAfterPurchase]);
 
   useEffect(() => {
     if (sessionId) {
