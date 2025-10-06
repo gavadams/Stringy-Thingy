@@ -107,9 +107,9 @@ export async function generateKitCodes(
       kit_type: kitType,
       max_generations: maxGenerations,
       purchase_date: new Date().toISOString(),
-      is_redeemed: false,
-      redeemed_by: null,
-      redeemed_at: null
+      is_active: true,
+      used_count: 0,
+      redeemed_by: null
     }));
 
     const { error: insertError } = await supabase

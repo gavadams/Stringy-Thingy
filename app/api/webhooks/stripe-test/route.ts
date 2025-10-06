@@ -1,96 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe/client';
 import { createClient } from '@supabase/supabase-js';
 import { generateKitCodes } from '@/lib/codes/generator';
 import { sendOrderConfirmation } from '@/lib/email/send';
-import Stripe from 'stripe';
 
-// CRITICAL: Disable body parsing for webhook signature verification
-export const runtime = 'nodejs'; // Ensure Node.js runtime
-export const dynamic = 'force-dynamic'; // Disable caching
+// Test webhook without signature verification
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 export async function POST(request: NextRequest) {
-  console.log('🚀 Webhook received!');
-  console.log('Request URL:', request.url);
-  console.log('Request method:', request.method);
-  console.log('Request headers:', Object.fromEntries(request.headers.entries()));
+  console.log('🧪 Test webhook received!');
   
-  let body: string;
-  let signature: string | null;
-
   try {
-    // Get raw body
-    body = await request.text();
-    signature = request.headers.get('stripe-signature');
+    const body = await request.json();
+    console.log('📦 Test webhook body:', JSON.stringify(body, null, 2));
 
-    console.log('📝 Webhook signature:', signature ? 'Present' : 'Missing');
-    console.log('📏 Webhook body length:', body.length);
-    console.log('📄 Webhook body preview:', body.substring(0, 200) + '...');
-
-    if (!signature) {
-      console.error('No Stripe signature found');
-      return NextResponse.json({ error: 'No signature' }, { status: 400 });
-    }
-
-    if (!process.env.STRIPE_WEBHOOK_SECRET) {
-      console.error('STRIPE_WEBHOOK_SECRET not set');
-      return NextResponse.json({ error: 'Webhook secret not configured' }, { status: 500 });
-    }
-
-    // Verify webhook signature
-    const event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    );
-
-    console.log('Received webhook event:', event.type);
-
-    // Process the event
-    switch (event.type) {
-      case 'checkout.session.completed':
-        await handleCheckoutSessionCompleted(event.data.object as Stripe.Checkout.Session);
-        break;
+    if (body.type === 'checkout.session.completed') {
+      const session = body.data.object;
+      console.log('🎯 Processing test checkout session:', session.id);
       
-      case 'payment_intent.succeeded':
-        console.log('Payment succeeded:', event.data.object.id);
-        break;
+      await handleCheckoutSessionCompleted(session);
       
-      case 'payment_intent.payment_failed':
-        console.log('Payment failed:', event.data.object.id);
-        break;
-      
-      default:
-        console.log(`Unhandled event type: ${event.type}`);
+      return NextResponse.json({ success: true, message: 'Test webhook processed' });
     }
 
-    return NextResponse.json({ received: true }, { status: 200 });
-
-  } catch (err) {
-    const error = err as Error;
-    console.error('Webhook error:', error.message);
-    
-    // Check for specific Stripe signature errors
-    if (error.message.includes('No signatures found')) {
-      return NextResponse.json(
-        { error: 'Invalid signature' }, 
-        { status: 400 }
-      );
-    }
-
-    return NextResponse.json(
-      { error: `Webhook error: ${error.message}` },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: true, message: 'Event type not handled' });
+  } catch (error) {
+    console.error('❌ Test webhook error:', error);
+    return NextResponse.json({ error: error instanceof Error ? error.message : 'Unknown error' }, { status: 500 });
   }
 }
 
-async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) {
-  console.log('🎯 Processing checkout session completed:', session.id);
+async function handleCheckoutSessionCompleted(session: any) {
+  console.log('🎯 Processing test checkout session completed:', session.id);
   console.log('📧 Customer email:', session.customer_email);
   console.log('💰 Amount total:', session.amount_total);
   console.log('📦 Session metadata:', session.metadata);
-  console.log('💳 Payment intent:', session.payment_intent);
 
   // Validate required fields
   if (!session.customer_email) {
@@ -108,7 +52,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
   // Extract payment intent ID
   const paymentIntentId = typeof session.payment_intent === 'string' 
     ? session.payment_intent 
-    : (session.payment_intent as Stripe.PaymentIntent).id;
+    : session.payment_intent.id;
+
+  console.log('💳 Payment intent ID:', paymentIntentId);
 
   // Validate environment variables
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
@@ -139,6 +85,9 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     return parsed;
   });
 
+  console.log('📦 Product IDs:', productIdArray);
+  console.log('🔢 Quantities:', quantityArray);
+
   // Get product details from database
   const { data: products, error: productsError } = await supabase
     .from('products')
@@ -157,10 +106,14 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     throw new Error(`Expected ${productIdArray.length} products, found ${products.length}`);
   }
 
+  console.log('✅ Products found:', products.length);
+
   // Calculate total
   const total = products.reduce((sum, product, index) => {
     return sum + (product.price * quantityArray[index]);
   }, 0);
+
+  console.log('💰 Total calculated:', total);
 
   // Create order record
   const { data: order, error: orderError } = await supabase
@@ -183,7 +136,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
         price: product.price,
         image: (product.images && product.images.length > 0) ? product.images[0] : null
       })),
-      notes: 'Order created via Stripe webhook'
+      notes: 'Order created via test webhook'
     })
     .select()
     .single();
@@ -192,7 +145,7 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     throw new Error(`Failed to create order: ${orderError.message}`);
   }
 
-  console.log('Order created:', order.id);
+  console.log('✅ Order created:', order.id);
 
   // Generate kit codes for each product
   const allKitCodes: Array<{ code: string; kit_type: string; max_generations: number }> = [];
@@ -201,11 +154,15 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     const product = products[i];
     const quantity = quantityArray[i];
     
+    console.log(`🔑 Generating ${quantity} codes for ${product.name} (${product.kit_type})`);
+    
     const codeResult = await generateKitCodes(quantity, product.kit_type);
     
     if (!codeResult.success || !codeResult.codes) {
       throw new Error(`Failed to generate codes for ${product.name}: ${codeResult.error}`);
     }
+
+    console.log(`✅ Generated codes:`, codeResult.codes);
 
     codeResult.codes.forEach(code => {
       allKitCodes.push({
@@ -226,6 +183,8 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
 
   if (updateError) {
     console.error('Failed to update order with kit codes:', updateError);
+  } else {
+    console.log('✅ Order updated with kit codes');
   }
 
   // Send confirmation email
@@ -243,13 +202,13 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
       kitCodes: allKitCodes
     });
     
-    console.log('Confirmation email sent to:', session.customer_email);
+    console.log('✅ Confirmation email sent to:', session.customer_email);
   } catch (emailError) {
-    console.error('Failed to send confirmation email:', emailError);
+    console.error('❌ Failed to send confirmation email:', emailError);
     // Don't fail the webhook for email errors
   }
 
-  console.log('Successfully processed order:', order.id);
+  console.log('🎉 Successfully processed test order:', order.id);
 }
 
 function getMaxGenerations(kitType: string): number {
