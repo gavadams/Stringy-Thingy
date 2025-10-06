@@ -85,7 +85,7 @@ export default function HelpPage() {
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">
-                    <span className="font-medium">What's included in my kit?</span>
+                    <span className="font-medium">What&apos;s included in my kit?</span>
                     <ChevronRight className="w-4 h-4 text-gray-400" />
                   </div>
                   <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 cursor-pointer">

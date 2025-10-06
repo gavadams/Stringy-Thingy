@@ -94,7 +94,7 @@ export default function ShippingPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Available Countries</h3>
                   <p className="text-sm text-gray-600 mb-4">
-                    We ship to most countries worldwide. Contact us if your country isn't listed.
+                    We ship to most countries worldwide. Contact us if your country isn&apos;t listed.
                   </p>
                   <div className="flex flex-wrap gap-2">
                     {['US', 'CA', 'GB', 'AU', 'DE', 'FR', 'IT', 'ES', 'NL', 'BE'].map(country => (

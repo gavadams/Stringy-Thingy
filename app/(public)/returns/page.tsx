@@ -38,7 +38,7 @@ export default function ReturnsPage() {
                   </ul>
                 </div>
                 <div>
-                  <h3 className="font-semibold mb-2">What's Not Returnable</h3>
+                  <h3 className="font-semibold mb-2">What&apos;s Not Returnable</h3>
                   <ul className="text-sm text-gray-600 space-y-1">
                     <li>• Opened or used kits</li>
                     <li>• Kits with redeemed codes</li>
@@ -78,7 +78,7 @@ export default function ReturnsPage() {
                   <div>
                     <h3 className="font-semibold">Get Return Label</h3>
                     <p className="text-sm text-gray-600">
-                      We'll email you a prepaid return shipping label within 24 hours.
+                      We&apos;ll email you a prepaid return shipping label within 24 hours.
                     </p>
                   </div>
                 </div>
@@ -100,7 +100,7 @@ export default function ReturnsPage() {
                   <div>
                     <h3 className="font-semibold">Receive Refund</h3>
                     <p className="text-sm text-gray-600">
-                      Once we receive and inspect your return, we'll process your refund within 5-7 business days.
+                      Once we receive and inspect your return, we&apos;ll process your refund within 5-7 business days.
                     </p>
                   </div>
                 </div>
@@ -133,7 +133,7 @@ export default function ReturnsPage() {
                 <div>
                   <h3 className="font-semibold mb-2">Defective Items</h3>
                   <p className="text-sm text-gray-600 mb-4">
-                    If your kit arrives damaged or defective, we'll send a replacement immediately.
+                    If your kit arrives damaged or defective, we&apos;ll send a replacement immediately.
                   </p>
                   <ul className="text-sm text-gray-600 space-y-1">
                     <li>• Photo documentation required</li>

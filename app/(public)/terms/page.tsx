@@ -161,7 +161,7 @@ export default function TermsPage() {
             </CardHeader>
             <CardContent>
               <p className="text-sm text-gray-600">
-                We reserve the right to modify these terms at any time. We will notify users of any material changes by posting the new terms on this page and updating the "Last updated" date. Your continued use of the service after any such changes constitutes your acceptance of the new terms.
+                We reserve the right to modify these terms at any time. We will notify users of any material changes by posting the new terms on this page and updating the &quot;Last updated&quot; date. Your continued use of the service after any such changes constitutes your acceptance of the new terms.
               </p>
             </CardContent>
           </Card>
