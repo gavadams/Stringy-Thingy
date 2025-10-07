@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/client';
 
 export interface GenerationData {
   user_id: string;
@@ -260,10 +260,8 @@ export async function getUserKitCodes(userId: string): Promise<{
   created_at: string;
 }[]> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // Use the same client instance that has the auth context
+    const supabase = createClient();
     
     console.log('getUserKitCodes - Querying for user:', userId);
     
