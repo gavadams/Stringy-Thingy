@@ -272,6 +272,11 @@ export async function getUserKitCodes(userId: string): Promise<{
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
+    console.log('getUserKitCodes Debug:');
+    console.log('- User ID:', userId);
+    console.log('- Query result:', { data, error });
+    console.log('- Data length:', data?.length || 0);
+
     if (error) {
       console.error('Error fetching user kit codes:', error);
       return [];
