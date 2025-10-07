@@ -2,9 +2,9 @@ import React, { useState, useRef } from 'react';
 import { Upload, Download, Settings, ImagePlus, Zap } from 'lucide-react';
 
 const StringArtConverter = () => {
-  const [image, setImage] = useState(null);
+  const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [processing, setProcessing] = useState(false);
-  const [result, setResult] = useState(null);
+  const [result, setResult] = useState<{ lines: Array<{ from: number; to: number }>; pegs: Array<{ x: number; y: number }> } | null>(null);
   const [params, setParams] = useState({
     pegs: 200,
     lines: 3000,
@@ -13,11 +13,11 @@ const StringArtConverter = () => {
   });
   const [showSettings, setShowSettings] = useState(false);
   
-  const canvasRef = useRef(null);
-  const resultCanvasRef = useRef(null);
-  const fileInputRef = useRef(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const resultCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = (e) => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     
@@ -33,7 +33,7 @@ const StringArtConverter = () => {
         img.onerror = () => {
           alert('Failed to load image. Please try another file.');
         };
-        img.src = event.target.result;
+        img.src = event.target?.result as string;
       };
       reader.onerror = () => {
         alert('Failed to read file. Please try again.');
@@ -44,11 +44,13 @@ const StringArtConverter = () => {
     }
   };
 
-  const drawOriginalImage = (img) => {
+  const drawOriginalImage = (img: HTMLImageElement) => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
     const size = 500;
     canvas.width = size;
     canvas.height = size;
@@ -63,7 +65,7 @@ const StringArtConverter = () => {
     ctx.drawImage(img, x, y, img.width * scale, img.height * scale);
   };
 
-  const convertToGrayscale = (imageData) => {
+  const convertToGrayscale = (imageData: ImageData) => {
     const data = imageData.data;
     for (let i = 0; i < data.length; i += 4) {
       const avg = (data[i] + data[i + 1] + data[i + 2]) / 3;
@@ -74,8 +76,8 @@ const StringArtConverter = () => {
     return imageData;
   };
 
-  const generatePegs = (numPegs, size, shape) => {
-    const pegs = [];
+  const generatePegs = (numPegs: number, size: number, shape: string) => {
+    const pegs: Array<{ x: number; y: number }> = [];
     const centerX = size / 2;
     const centerY = size / 2;
     const radius = size / 2 - 20;
@@ -107,8 +109,8 @@ const StringArtConverter = () => {
     return pegs;
   };
 
-  const getLinePixels = (x0, y0, x1, y1) => {
-    const pixels = [];
+  const getLinePixels = (x0: number, y0: number, x1: number, y1: number) => {
+    const pixels: Array<{ x: number; y: number }> = [];
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
     const sx = x0 < x1 ? 1 : -1;
@@ -137,7 +139,7 @@ const StringArtConverter = () => {
     return pixels;
   };
 
-  const calculateLineScore = (pegs, pegA, pegB, imageData, size) => {
+  const calculateLineScore = (pegs: Array<{ x: number; y: number }>, pegA: number, pegB: number, imageData: ImageData, size: number) => {
     const pixels = getLinePixels(pegs[pegA].x, pegs[pegA].y, pegs[pegB].x, pegs[pegB].y);
     let score = 0;
     
@@ -166,6 +168,7 @@ const StringArtConverter = () => {
       tempCanvas.width = size;
       tempCanvas.height = size;
       const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
       
       tempCtx.fillStyle = '#ffffff';
       tempCtx.fillRect(0, 0, size, size);
@@ -180,13 +183,16 @@ const StringArtConverter = () => {
       imageData = convertToGrayscale(imageData);
       
       const pegs = generatePegs(params.pegs, size, params.frameShape);
-      const lines = [];
+      const lines: Array<{ from: number; to: number }> = [];
       let currentPeg = 0;
       
       const resultCanvas = resultCanvasRef.current;
+      if (!resultCanvas) return;
+      
       resultCanvas.width = size;
       resultCanvas.height = size;
       const ctx = resultCanvas.getContext('2d');
+      if (!ctx) return;
       
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, size, size);
