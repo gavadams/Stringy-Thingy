@@ -65,7 +65,7 @@ export async function getUserGenerations(userId: string, limit: number = 50, off
     );
     
     const { data, error } = await supabase
-      .from('user_generations')
+      .from('generations')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -151,7 +151,7 @@ export async function getGenerationStats(userId: string): Promise<GenerationStat
     
     // Get total generations
     const { count: totalGenerations } = await supabase
-      .from('user_generations')
+      .from('generations')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
 
@@ -168,7 +168,7 @@ export async function getGenerationStats(userId: string): Promise<GenerationStat
 
     // Get latest generation
     const { data: latestGeneration } = await supabase
-      .from('user_generations')
+      .from('generations')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
@@ -265,6 +265,13 @@ export async function getUserKitCodes(userId: string): Promise<{
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
     );
     
+    console.log('getUserKitCodes - Querying for user:', userId);
+    
+    // First, let's check what auth.uid() returns
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    console.log('getUserKitCodes - Auth user:', authUser?.id);
+    console.log('getUserKitCodes - User ID match:', authUser?.id === userId);
+    
     const { data, error } = await supabase
       .from('kit_codes')
       .select('*')
@@ -272,11 +279,14 @@ export async function getUserKitCodes(userId: string): Promise<{
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
+    console.log('getUserKitCodes - Query result:', { data, error });
+
     if (error) {
       console.error('Error fetching user kit codes:', error);
       return [];
     }
 
+    console.log('getUserKitCodes - Returning:', data || []);
     return data || [];
   } catch (error) {
     console.error('Error fetching user kit codes:', error);

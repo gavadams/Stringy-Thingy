@@ -60,7 +60,9 @@ export default function GeneratePage() {
 
   const loadKitCodes = async (userId: string) => {
     try {
+      console.log('Generate Page - Loading kit codes for user:', userId);
       const codes = await getUserKitCodes(userId);
+      console.log('Generate Page - Kit codes received:', codes);
       setKitCodes(codes);
       
       if (codes.length > 0) {

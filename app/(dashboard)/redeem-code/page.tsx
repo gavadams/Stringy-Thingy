@@ -51,6 +51,8 @@ export default function RedeemCodePage() {
           user_id: user.id
         });
 
+      console.log('Redeem Debug:', { code, userId: user.id, result: redeemResult, error: redeemError });
+
       if (redeemError) {
         toast.error("Failed to redeem kit code: " + redeemError.message);
         setIsLoading(false);
