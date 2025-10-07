@@ -1,11 +1,11 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export interface GenerationData {
   user_id: string;
   kit_code_id: string;
   image_url: string;
-  settings: Record<string, any>;
-  pattern_data?: Record<string, any>;
+  settings: Record<string, unknown>;
+  pattern_data?: Record<string, unknown>;
 }
 
 export interface Generation {
@@ -13,8 +13,8 @@ export interface Generation {
   user_id: string;
   kit_code_id: string;
   image_url: string;
-  settings: Record<string, any>;
-  pattern_data?: Record<string, any>;
+  settings: Record<string, unknown>;
+  pattern_data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
@@ -31,7 +31,10 @@ export interface GenerationStats {
  */
 export async function getGenerationById(id: string): Promise<Generation | null> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { data, error } = await supabase
       .from('user_generations')
@@ -56,7 +59,10 @@ export async function getGenerationById(id: string): Promise<Generation | null> 
  */
 export async function getUserGenerations(userId: string, limit: number = 50, offset: number = 0): Promise<Generation[]> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { data, error } = await supabase
       .from('user_generations')
@@ -82,7 +88,10 @@ export async function getUserGenerations(userId: string, limit: number = 50, off
  */
 export async function createGeneration(data: GenerationData): Promise<Generation | null> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { data: generation, error } = await supabase
       .from('user_generations')
@@ -107,7 +116,10 @@ export async function createGeneration(data: GenerationData): Promise<Generation
  */
 export async function deleteGeneration(id: string, userId: string): Promise<boolean> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { error } = await supabase
       .from('user_generations')
@@ -132,7 +144,10 @@ export async function deleteGeneration(id: string, userId: string): Promise<bool
  */
 export async function getGenerationStats(userId: string): Promise<GenerationStats> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     // Get total generations
     const { count: totalGenerations } = await supabase
@@ -181,7 +196,10 @@ export async function getGenerationStats(userId: string): Promise<GenerationStat
  */
 export async function canUserGenerate(userId: string, codeId: string): Promise<boolean> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { data: kitCode, error } = await supabase
       .from('kit_codes')
@@ -209,7 +227,10 @@ export async function canUserGenerate(userId: string, codeId: string): Promise<b
  */
 export async function incrementKitUsage(codeId: string): Promise<boolean> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { error } = await supabase.rpc('increment_kit_usage', {
       code_id: codeId
@@ -230,9 +251,12 @@ export async function incrementKitUsage(codeId: string): Promise<boolean> {
 /**
  * Get user's active kit codes
  */
-export async function getUserKitCodes(userId: string): Promise<any[]> {
+export async function getUserKitCodes(userId: string): Promise<unknown[]> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { data, error } = await supabase
       .from('kit_codes')

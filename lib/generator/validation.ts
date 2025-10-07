@@ -1,4 +1,4 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 export interface ValidationResult {
   valid: boolean;
@@ -20,7 +20,10 @@ export interface ImageValidationResult extends ValidationResult {
  */
 export async function validateKitCode(code: string, userId: string): Promise<KitCodeValidationResult> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     // Check if code exists and is active
     const { data: kitCode, error: kitError } = await supabase

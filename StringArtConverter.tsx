@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, Download, Settings, ImagePlus, Zap } from 'lucide-react';
 
 const StringArtConverter = () => {
@@ -455,7 +455,7 @@ const StringArtConverter = () => {
           <ol className="text-purple-100 space-y-2 list-decimal list-inside">
             <li>Upload your image (portraits and high-contrast images work best)</li>
             <li>Adjust settings to customize your pattern</li>
-            <li>Click "Generate String Art" to create your pattern</li>
+            <li>Click &quot;Generate String Art&quot; to create your pattern</li>
             <li>Download the instructions and pattern image</li>
             <li>Follow the numbered peg sequence to create your physical string art!</li>
           </ol>

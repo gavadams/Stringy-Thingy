@@ -24,7 +24,7 @@ interface KitCode {
 }
 
 export default function GeneratePage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const [kitCodes, setKitCodes] = useState<KitCode[]>([]);
   const [selectedCode, setSelectedCode] = useState<string>('');
   const [selectedKitCode, setSelectedKitCode] = useState<KitCode | null>(null);
@@ -32,7 +32,6 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -85,7 +84,7 @@ export default function GeneratePage() {
     setError(null);
   };
 
-  const handleGenerate = async (result: any) => {
+  const handleGenerate = async (result: { lines: unknown[]; pegs: unknown[]; settings: unknown }) => {
     if (!selectedKitCode || !imageFile || !user) return;
 
     setProcessing(true);

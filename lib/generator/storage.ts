@@ -1,20 +1,22 @@
-import { createClient } from '@/lib/supabase/server';
+import { createClient } from '@supabase/supabase-js';
 
 /**
  * Upload an image file to Supabase Storage
  */
 export async function uploadImage(file: File, userId: string): Promise<string> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     // Generate unique filename
     const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop();
     const filename = `${timestamp}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
     const filePath = `${userId}/${filename}`;
 
     // Upload file to Supabase Storage
-    const { data, error } = await supabase.storage
+    const { error } = await supabase.storage
       .from('user-images')
       .upload(filePath, file, {
         cacheControl: '3600',
@@ -42,7 +44,10 @@ export async function uploadImage(file: File, userId: string): Promise<string> {
  */
 export async function deleteImage(url: string): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     // Extract file path from URL
     const urlParts = url.split('/');
@@ -67,7 +72,10 @@ export async function deleteImage(url: string): Promise<void> {
  */
 export async function getSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
   try {
-    const supabase = createClient();
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
     
     const { data, error } = await supabase.storage
       .from('user-images')

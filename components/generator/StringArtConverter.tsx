@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Upload, Download, Settings, ImagePlus, Zap, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { downloadInstructionsPDF, downloadTextInstructions } from '@/lib/generator/pdf';
 
 interface StringArtConverterProps {
-  onGenerate?: (result: any) => void;
+  onGenerate?: (result: { lines: unknown[]; pegs: unknown[]; settings: unknown }) => void;
   onImageUpload?: (file: File) => void;
   kitCode?: string;
   remainingGenerations?: number;
@@ -25,7 +25,7 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
   disabled = false
 }) => {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
-  const [result, setResult] = useState<any>(null);
+  const [result, setResult] = useState<{ lines: unknown[]; pegs: unknown[]; settings: unknown } | null>(null);
   const [params, setParams] = useState({
     pegs: 200,
     lines: 3000,

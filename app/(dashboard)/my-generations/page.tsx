@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getUserGenerations, deleteGeneration } from '@/lib/generator/queries';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Input } from '@/components/ui/input';
@@ -17,13 +17,13 @@ import Image from 'next/image';
 interface Generation {
   id: string;
   image_url: string;
-  settings: Record<string, any>;
+  settings: Record<string, unknown>;
   created_at: string;
   kit_code_id: string;
 }
 
 export default function MyGenerationsPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const [generations, setGenerations] = useState<Generation[]>([]);
   const [filteredGenerations, setFilteredGenerations] = useState<Generation[]>([]);
   const [loading, setLoading] = useState(true);

@@ -8,7 +8,6 @@ import { downloadInstructionsPDF, downloadTextInstructions } from '@/lib/generat
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   ArrowLeft, 
   Download, 
@@ -27,14 +26,14 @@ interface Generation {
   user_id: string;
   kit_code_id: string;
   image_url: string;
-  settings: Record<string, any>;
-  pattern_data?: Record<string, any>;
+  settings: Record<string, unknown>;
+  pattern_data?: Record<string, unknown>;
   created_at: string;
   updated_at: string;
 }
 
 export default function GenerationDetailPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ id: string } | null>(null);
   const [generation, setGeneration] = useState<Generation | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -1,5 +1,4 @@
 import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 export interface PDFGenerationOptions {
   lines: { from: number; to: number }[];
@@ -18,7 +17,7 @@ export interface PDFGenerationOptions {
  * Generate a professional PDF with string art instructions
  */
 export async function generateInstructionsPDF(options: PDFGenerationOptions): Promise<Blob> {
-  const { lines, pegs, settings, imagePreview, kitType = 'standard' } = options;
+  const { lines, settings, kitType = 'standard' } = options;
   
   // Create new PDF document
   const doc = new jsPDF();
@@ -31,17 +30,12 @@ export async function generateInstructionsPDF(options: PDFGenerationOptions): Pr
   const textColor = '#1f2937'; // Dark gray
   
   // Helper function to add text with styling
-  const addText = (text: string, x: number, y: number, options: any = {}) => {
+  const addText = (text: string, x: number, y: number, options: { fontSize?: number; color?: string } = {}) => {
     doc.setFontSize(options.fontSize || 12);
     doc.setTextColor(options.color || textColor);
     doc.text(text, x, y);
   };
   
-  // Helper function to add line
-  const addLine = (x1: number, y1: number, x2: number, y2: number, color: string = '#e5e7eb') => {
-    doc.setDrawColor(color);
-    doc.line(x1, y1, x2, y2);
-  };
   
   // Header
   doc.setFillColor(primaryColor);
