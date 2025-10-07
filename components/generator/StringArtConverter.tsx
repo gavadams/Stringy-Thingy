@@ -212,15 +212,9 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
       const lines: { from: number; to: number }[] = [];
       let currentPeg = 0;
       
-      let resultCanvas = resultCanvasRef.current;
+      const resultCanvas = resultCanvasRef.current;
       if (!resultCanvas) {
-        console.error('Result canvas not found, retrying...');
-        // Wait a bit and try again
-        await new Promise(resolve => setTimeout(resolve, 100));
-        resultCanvas = resultCanvasRef.current;
-        if (!resultCanvas) {
-          throw new Error('Result canvas not found - please try again');
-        }
+        throw new Error('Result canvas not found - please refresh the page and try again');
       }
       
       resultCanvas.width = size;
@@ -391,27 +385,29 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {!result ? (
-              <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 h-[400px] flex items-center justify-center">
-                <div>
-                  <p className="text-gray-500 text-lg">Your string art will appear here</p>
-                  {image && (
-                    <Button
-                      onClick={processImage}
-                      disabled={isProcessing || disabled}
-                      className="mt-6"
-                    >
-                      {isProcessing ? 'Processing...' : 'Generate String Art'}
-                    </Button>
-                  )}
+            <div className="space-y-4">
+              <canvas
+                ref={resultCanvasRef}
+                className="w-full rounded-xl border border-gray-200"
+                style={{ display: result ? 'block' : 'none' }}
+              />
+              {!result && (
+                <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 h-[400px] flex items-center justify-center">
+                  <div>
+                    <p className="text-gray-500 text-lg">Your string art will appear here</p>
+                    {image && (
+                      <Button
+                        onClick={processImage}
+                        disabled={isProcessing || disabled}
+                        className="mt-6"
+                      >
+                        {isProcessing ? 'Processing...' : 'Generate String Art'}
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <canvas
-                  ref={resultCanvasRef}
-                  className="w-full rounded-xl border border-gray-200"
-                />
+              )}
+              {result && (
                 <div className="flex gap-3">
                   <Button
                     onClick={downloadInstructions}
@@ -430,8 +426,8 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
                     Pattern
                   </Button>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>
