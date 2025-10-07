@@ -100,11 +100,7 @@ if (typeof window !== 'undefined') {
   }
 }
 
-// Check if we're on success page or cart was recently cleared
-const isSuccessPage = typeof window !== 'undefined' && window.location.pathname.includes('/checkout/success');
-const wasRecentlyCleared = typeof window !== 'undefined' && 
-  localStorage.getItem('cart-cleared-timestamp') && 
-  (Date.now() - parseInt(localStorage.getItem('cart-cleared-timestamp') || '0')) < 300000; // 5 minutes
+// These variables are no longer needed since we're using a different approach
 
 // Create a non-persistent cart store for success page
 export const useCartStoreNoPersist = create<CartStore>()((set, get) => ({
@@ -436,8 +432,7 @@ export const useCartStore = create<CartStore>()(
         console.log('Cart cleared after purchase, final items:', get().items.length);
       },
     }),
-    // Conditionally disable persistence if cart was recently cleared
-    isSuccessPage || wasRecentlyCleared ? {} : {
+    {
       name: 'cart-storage',
       storage: createJSONStorage(() => customStorage),
       partialize: (state) => ({ items: state.items }),
