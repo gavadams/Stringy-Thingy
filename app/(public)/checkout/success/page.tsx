@@ -39,6 +39,25 @@ function CheckoutSuccessContent() {
   const sessionId = searchParams.get('session_id');
   const { clearCartAfterPurchase } = useCartStore();
   
+  // Clear cart immediately when component mounts (success page)
+  useEffect(() => {
+    console.log('Success page mounted, clearing cart immediately');
+    
+    // Multiple approaches to ensure cart is cleared
+    clearCartAfterPurchase();
+    
+    // Also directly manipulate localStorage as backup
+    try {
+      localStorage.removeItem('cart-storage');
+      localStorage.removeItem('cart');
+      localStorage.removeItem('shopping-cart');
+      localStorage.setItem('cart-cleared-timestamp', Date.now().toString());
+      console.log('Direct localStorage clearing completed');
+    } catch (error) {
+      console.error('Error in direct localStorage clearing:', error);
+    }
+  }, [clearCartAfterPurchase]);
+  
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

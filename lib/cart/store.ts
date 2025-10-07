@@ -39,15 +39,20 @@ interface CartStore {
   getItemQuantity: (productId: string) => number;
 }
 
-// Custom storage that respects the cleared flag
+// Custom storage that respects the cleared timestamp
 const customStorage = {
   getItem: (name: string) => {
     try {
-      const wasCleared = localStorage.getItem('cart-cleared-after-purchase');
-      if (wasCleared === 'true') {
+      const clearedTimestamp = localStorage.getItem('cart-cleared-timestamp');
+      const storedTimestamp = localStorage.getItem('cart-storage-timestamp');
+      
+      // If cart was cleared more recently than it was stored, return empty
+      if (clearedTimestamp && storedTimestamp && 
+          parseInt(clearedTimestamp) > parseInt(storedTimestamp)) {
         console.log('Cart was cleared after purchase, returning empty state');
         return JSON.stringify({ state: { items: [] }, version: 0 });
       }
+      
       return localStorage.getItem(name);
     } catch (error) {
       console.error('Error getting cart from storage:', error);
@@ -57,6 +62,7 @@ const customStorage = {
   setItem: (name: string, value: string) => {
     try {
       localStorage.setItem(name, value);
+      localStorage.setItem('cart-storage-timestamp', Date.now().toString());
     } catch (error) {
       console.error('Error setting cart in storage:', error);
     }
@@ -69,6 +75,21 @@ const customStorage = {
     }
   },
 };
+
+// Global cart clearing check on page load
+if (typeof window !== 'undefined') {
+  const clearedTimestamp = localStorage.getItem('cart-cleared-timestamp');
+  const storedTimestamp = localStorage.getItem('cart-storage-timestamp');
+  
+  if (clearedTimestamp && storedTimestamp && 
+      parseInt(clearedTimestamp) > parseInt(storedTimestamp)) {
+    console.log('Detected cart was cleared after purchase, ensuring empty state');
+    // Clear any existing cart data
+    localStorage.removeItem('cart-storage');
+    localStorage.removeItem('cart');
+    localStorage.removeItem('shopping-cart');
+  }
+}
 
 export const useCartStore = create<CartStore>()(
   persist(
@@ -277,27 +298,22 @@ export const useCartStore = create<CartStore>()(
         // Clear localStorage first to prevent any restore
         try {
           localStorage.removeItem('cart-storage');
-          // Also clear any other potential cart storage keys
           localStorage.removeItem('cart');
           localStorage.removeItem('shopping-cart');
+          // Set a timestamp to prevent any restoration
+          localStorage.setItem('cart-cleared-timestamp', Date.now().toString());
           console.log('All cart storage cleared from localStorage after purchase');
         } catch (error) {
           console.error('Error clearing cart from localStorage after purchase:', error);
         }
         
-        // Clear the state
+        // Clear the state multiple times to ensure it sticks
         set({ items: [] });
+        setTimeout(() => set({ items: [] }), 100);
+        setTimeout(() => set({ items: [] }), 500);
         
         // Force a re-render by updating a non-persisted field
         set((state) => ({ ...state, isOpen: false }));
-        
-        // Set a flag to prevent restoration
-        try {
-          localStorage.setItem('cart-cleared-after-purchase', 'true');
-          console.log('Cart cleared flag set');
-        } catch (error) {
-          console.error('Error setting cart cleared flag:', error);
-        }
         
         console.log('Cart cleared after purchase, final items:', get().items.length);
       },
