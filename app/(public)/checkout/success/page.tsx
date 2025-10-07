@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { useCartStore } from '@/lib/cart/store';
+import { useCartStore, useCartStoreNoPersist } from '@/lib/cart/store';
 
 interface OrderDetails {
   id: string;
@@ -37,14 +37,18 @@ interface OrderDetails {
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
-  const { clearCartAfterPurchase } = useCartStore();
+  const { clearCartAfterPurchase } = useCartStoreNoPersist();
   
   // Clear cart immediately when component mounts (success page)
   useEffect(() => {
     console.log('Success page mounted, clearing cart immediately');
     
-    // Multiple approaches to ensure cart is cleared
+    // Clear the non-persistent store
     clearCartAfterPurchase();
+    
+    // Also clear the persistent store directly
+    const persistentStore = useCartStore.getState();
+    persistentStore.clearCartAfterPurchase();
     
     // Also directly manipulate localStorage as backup
     try {
