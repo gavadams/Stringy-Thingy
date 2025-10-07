@@ -40,15 +40,20 @@ export default function GeneratePage() {
 
   const checkAuth = async () => {
     try {
+      console.log('Generate Page - Starting auth check');
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       
+      console.log('Generate Page - Auth user:', user?.id);
+      
       if (!user) {
+        console.log('Generate Page - No user, redirecting to login');
         router.push('/login');
         return;
       }
 
       setUser(user);
+      console.log('Generate Page - Loading kit codes for user:', user.id);
       await loadKitCodes(user.id);
     } catch (error) {
       console.error('Auth check failed:', error);
