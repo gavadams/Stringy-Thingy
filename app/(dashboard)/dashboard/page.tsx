@@ -16,14 +16,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { redirect } from "next/navigation";
 
-interface KitCode {
-  id: string;
-  code: string;
-  kit_type: string;
-  max_generations: number;
-  used_count: number;
-  created_at: string;
-}
 
 export default async function DashboardPage() {
   const currentUser = await getCurrentUser();

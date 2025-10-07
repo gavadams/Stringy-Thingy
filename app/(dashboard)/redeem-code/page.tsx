@@ -31,15 +31,15 @@ export default function RedeemCodePage() {
         return;
       }
 
-      // Check if user already has a kit code
+      // Check if this specific code is already redeemed
       const { data: existingCode } = await supabase
         .from('kit_codes')
         .select('*')
-        .eq('redeemed_by', user.id)
+        .eq('code', code)
         .single();
 
-      if (existingCode) {
-        toast.error("You already have a kit code linked to your account");
+      if (existingCode && existingCode.redeemed_by) {
+        toast.error("This kit code has already been redeemed");
         setIsLoading(false);
         return;
       }
