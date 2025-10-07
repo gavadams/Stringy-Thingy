@@ -89,6 +89,21 @@ export default function OrderDetailPage() {
         return;
       }
 
+      console.log('Fetched order data:', data);
+      console.log('Notes field:', data.notes);
+      console.log('Notes type:', typeof data.notes);
+      console.log('Notes is array:', Array.isArray(data.notes));
+      
+      // Handle notes field - it might be stored as JSONB string
+      if (data.notes && typeof data.notes === 'string') {
+        try {
+          data.notes = JSON.parse(data.notes);
+          console.log('Parsed notes from JSON:', data.notes);
+        } catch (e) {
+          console.error('Error parsing notes JSON:', e);
+        }
+      }
+      
       setOrder(data);
     } catch (err) {
       setError('Failed to fetch order');
@@ -148,6 +163,8 @@ export default function OrderDetailPage() {
         })
         .eq('id', orderId);
 
+      console.log('Updated notes in database:', [...currentNotes, newNoteObj]);
+
       if (error) {
         toast.error('Failed to add note');
         return;
@@ -160,6 +177,11 @@ export default function OrderDetailPage() {
       
       setNewNote('');
       toast.success('Note added');
+      
+      // Refresh the order data to ensure we have the latest from the database
+      setTimeout(() => {
+        fetchOrder();
+      }, 500);
     } catch {
       toast.error('Failed to add note');
     } finally {
@@ -385,6 +407,7 @@ export default function OrderDetailPage() {
               <CardTitle>Order Notes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {console.log('Rendering notes section, order.notes:', order.notes, 'isArray:', Array.isArray(order.notes))}
               {order.notes && Array.isArray(order.notes) && order.notes.length > 0 ? (
                 <div className="space-y-3">
                   {order.notes.map((note: { text: string; added_at: string; added_by?: string }, index: number) => (
