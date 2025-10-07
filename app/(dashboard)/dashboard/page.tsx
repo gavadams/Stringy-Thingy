@@ -30,12 +30,6 @@ export default async function DashboardPage() {
     getUserKitCodes(currentUser.user.id)
   ]);
 
-  // Debug logging
-  console.log('Dashboard Debug:');
-  console.log('- User ID:', currentUser.user.id);
-  console.log('- Kit Codes:', kitCodes);
-  console.log('- Stats:', stats);
-
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="max-w-7xl mx-auto space-y-8">

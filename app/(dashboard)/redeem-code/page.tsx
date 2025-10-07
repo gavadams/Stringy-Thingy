@@ -51,21 +51,13 @@ export default function RedeemCodePage() {
           user_id: user.id
         });
 
-      console.log('Redeem Code Debug:');
-      console.log('- Code:', code);
-      console.log('- User ID:', user.id);
-      console.log('- Result:', redeemResult);
-      console.log('- Error:', redeemError);
-
       if (redeemError) {
-        console.error('Redeem Error:', redeemError);
         toast.error("Failed to redeem kit code: " + redeemError.message);
         setIsLoading(false);
         return;
       }
 
       if (!redeemResult.success) {
-        console.error('Redeem Failed:', redeemResult.error);
         toast.error(redeemResult.error);
         setIsLoading(false);
         return;
