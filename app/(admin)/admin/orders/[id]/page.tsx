@@ -407,7 +407,10 @@ export default function OrderDetailPage() {
               <CardTitle>Order Notes</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {console.log('Rendering notes section, order.notes:', order.notes, 'isArray:', Array.isArray(order.notes))}
+              {(() => {
+                console.log('Rendering notes section, order.notes:', order.notes, 'isArray:', Array.isArray(order.notes));
+                return null;
+              })()}
               {order.notes && Array.isArray(order.notes) && order.notes.length > 0 ? (
                 <div className="space-y-3">
                   {order.notes.map((note: { text: string; added_at: string; added_by?: string }, index: number) => (
