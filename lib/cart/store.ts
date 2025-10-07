@@ -43,6 +43,8 @@ interface CartStore {
 const customStorage = {
   getItem: (name: string) => {
     try {
+      if (typeof window === 'undefined') return null;
+      
       const clearedTimestamp = localStorage.getItem('cart-cleared-timestamp');
       const storedTimestamp = localStorage.getItem('cart-storage-timestamp');
       
@@ -61,6 +63,7 @@ const customStorage = {
   },
   setItem: (name: string, value: string) => {
     try {
+      if (typeof window === 'undefined') return;
       localStorage.setItem(name, value);
       localStorage.setItem('cart-storage-timestamp', Date.now().toString());
     } catch (error) {
@@ -69,6 +72,7 @@ const customStorage = {
   },
   removeItem: (name: string) => {
     try {
+      if (typeof window === 'undefined') return;
       localStorage.removeItem(name);
     } catch (error) {
       console.error('Error removing cart from storage:', error);
@@ -76,27 +80,34 @@ const customStorage = {
   },
 };
 
-// Global cart clearing check on page load
+// NUCLEAR OPTION: Completely clear ALL cart data on success page
 if (typeof window !== 'undefined') {
-  const clearedTimestamp = localStorage.getItem('cart-cleared-timestamp');
-  const storedTimestamp = localStorage.getItem('cart-storage-timestamp');
-  
-  if (clearedTimestamp && storedTimestamp && 
-      parseInt(clearedTimestamp) > parseInt(storedTimestamp)) {
-    console.log('Detected cart was cleared after purchase, ensuring empty state');
-    // Clear any existing cart data
+  if (window.location.pathname.includes('/checkout/success')) {
+    console.log('🚨 NUCLEAR: On success page, destroying ALL cart data');
+    // Clear EVERYTHING
     localStorage.removeItem('cart-storage');
     localStorage.removeItem('cart');
     localStorage.removeItem('shopping-cart');
+    localStorage.removeItem('cart-cleared-timestamp');
+    localStorage.removeItem('cart-storage-timestamp');
+    // Also clear sessionStorage
+    sessionStorage.removeItem('cart-storage');
+    sessionStorage.removeItem('cart');
+    sessionStorage.removeItem('shopping-cart');
+    // Set a flag that we're on success page
+    sessionStorage.setItem('on-success-page', 'true');
   }
   
-  // Also check if we're coming from a success page
-  if (window.location.pathname.includes('/checkout/success')) {
-    console.log('On success page, clearing all cart data');
+  // If we were on success page, keep clearing
+  if (sessionStorage.getItem('on-success-page') === 'true') {
+    console.log('🚨 NUCLEAR: Was on success page, continuing to clear cart');
     localStorage.removeItem('cart-storage');
     localStorage.removeItem('cart');
     localStorage.removeItem('shopping-cart');
-    localStorage.setItem('cart-cleared-timestamp', Date.now().toString());
+    // Only clear the flag when we navigate away from success page
+    if (!window.location.pathname.includes('/checkout/success')) {
+      sessionStorage.removeItem('on-success-page');
+    }
   }
 }
 
@@ -205,9 +216,118 @@ export const useCartStoreNoPersist = create<CartStore>()((set, get) => ({
   },
 }));
 
+// Check if we should disable persistence
+const shouldDisablePersistence = typeof window !== 'undefined' && 
+  (window.location.pathname.includes('/checkout/success') || 
+   sessionStorage.getItem('on-success-page') === 'true');
+
 export const useCartStore = create<CartStore>()(
-  persist(
+  shouldDisablePersistence ? 
+    // No persistence at all
     (set, get) => ({
+      items: [],
+      isOpen: false,
+      currentUserId: null,
+
+      addItem: (product: Product, quantity = 1) => {
+        set((state) => {
+          const existingItem = state.items.find(item => item.id === product.id);
+          
+          if (existingItem) {
+            const newItems = state.items.map(item =>
+              item.id === product.id
+                ? { ...item, quantity: item.quantity + quantity }
+                : item
+            );
+            return { items: newItems };
+          } else {
+            return {
+              items: [...state.items, { id: product.id, product, quantity }]
+            };
+          }
+        });
+      },
+
+      removeItem: (productId: string) => {
+        set((state) => ({
+          items: state.items.filter(item => item.id !== productId)
+        }));
+      },
+
+      updateQuantity: (productId: string, quantity: number) => {
+        if (quantity <= 0) {
+          get().removeItem(productId);
+          return;
+        }
+
+        set((state) => {
+          const newItems = state.items.map(item =>
+            item.id === productId
+              ? { ...item, quantity }
+              : item
+          );
+          return { items: newItems };
+        });
+      },
+
+      clearCart: () => {
+        set({ items: [] });
+      },
+
+      clearCartAfterPurchase: () => {
+        console.log('🚨 NUCLEAR: Clearing cart (no persistence)');
+        set({ items: [] });
+      },
+
+      toggleCart: () => {
+        set((state) => ({ isOpen: !state.isOpen }));
+      },
+
+      openCart: () => {
+        set({ isOpen: true });
+      },
+
+      closeCart: () => {
+        set({ isOpen: false });
+      },
+
+      getTotal: () => {
+        const { items } = get();
+        return items.reduce((total, item) => {
+          return total + (item.product.price * item.quantity);
+        }, 0);
+      },
+
+      getItemCount: () => {
+        const { items } = get();
+        return items.reduce((count, item) => count + item.quantity, 0);
+      },
+
+      getItemQuantity: (productId: string) => {
+        const { items } = get();
+        const item = items.find(item => item.id === productId);
+        return item ? item.quantity : 0;
+      },
+
+      setUserId: (userId: string | null) => {
+        set({ currentUserId: userId });
+      },
+
+      loadUserCart: async (userId: string) => {
+        // No-op for non-persistent store
+      },
+
+      saveUserCart: async (userId: string) => {
+        // No-op for non-persistent store
+      },
+
+      clearAnonymousCart: () => {
+        // No-op for non-persistent store
+      },
+    }) :
+    // Normal persistent store
+    persist(
+      (set, get) => ({
       items: [],
       isOpen: false,
       currentUserId: null,
