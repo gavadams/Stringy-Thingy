@@ -78,14 +78,14 @@ export default function MyGenerationsPage() {
     if (searchTerm) {
       filtered = filtered.filter(gen => 
         gen.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        gen.settings?.frameShape?.toLowerCase().includes(searchTerm.toLowerCase())
+        (gen.settings as { frameShape?: string })?.frameShape?.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
     // Type filter
     if (filterType !== 'all') {
       filtered = filtered.filter(gen => 
-        gen.settings?.frameShape === filterType
+        (gen.settings as { frameShape?: string })?.frameShape === filterType
       );
     }
 
@@ -236,15 +236,15 @@ export default function MyGenerationsPage() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Badge variant="outline">
-                        {generation.settings?.frameShape || 'circle'}
+                        {(generation.settings as { frameShape?: string })?.frameShape || 'circle'}
                       </Badge>
                       <span className="text-sm text-muted-foreground">
                         {new Date(generation.created_at).toLocaleDateString()}
                       </span>
                     </div>
                     <div className="text-sm text-muted-foreground">
-                      <p>Pegs: {generation.settings?.pegs || 'N/A'}</p>
-                      <p>Lines: {generation.settings?.lines || 'N/A'}</p>
+                      <p>Pegs: {(generation.settings as { pegs?: number })?.pegs || 'N/A'}</p>
+                      <p>Lines: {(generation.settings as { lines?: number })?.lines || 'N/A'}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button

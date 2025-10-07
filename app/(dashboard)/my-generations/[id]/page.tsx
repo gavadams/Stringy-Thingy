@@ -111,18 +111,18 @@ export default function GenerationDetailPage() {
     setDownloading(true);
     try {
       await downloadInstructionsPDF({
-        lines: generation.pattern_data?.lines || [],
-        pegs: generation.pattern_data?.pegs || [],
-        settings: generation.settings,
+        lines: (generation.pattern_data as { lines?: { from: number; to: number }[] })?.lines || [],
+        pegs: (generation.pattern_data as { pegs?: { x: number; y: number }[] })?.pegs || [],
+        settings: generation.settings as { pegs: number; lines: number; lineWeight: number; frameShape: string },
         kitType: 'standard'
       });
     } catch (error) {
       console.error('PDF generation failed:', error);
       // Fallback to text instructions
       downloadTextInstructions({
-        lines: generation.pattern_data?.lines || [],
-        pegs: generation.pattern_data?.pegs || [],
-        settings: generation.settings,
+        lines: (generation.pattern_data as { lines?: { from: number; to: number }[] })?.lines || [],
+        pegs: (generation.pattern_data as { pegs?: { x: number; y: number }[] })?.pegs || [],
+        settings: generation.settings as { pegs: number; lines: number; lineWeight: number; frameShape: string },
         kitType: 'standard'
       });
     } finally {
@@ -247,24 +247,24 @@ export default function GenerationDetailPage() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Frame Shape</span>
-                  <Badge variant="outline">
-                    {generation.settings?.frameShape || 'circle'}
-                  </Badge>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Number of Pegs</span>
-                  <span className="text-sm">{generation.settings?.pegs || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Number of Lines</span>
-                  <span className="text-sm">{generation.settings?.lines || 'N/A'}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">Line Weight</span>
-                  <span className="text-sm">{generation.settings?.lineWeight || 'N/A'}</span>
-                </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Frame Shape</span>
+                      <Badge variant="outline">
+                        {(generation.settings as { frameShape?: string })?.frameShape || 'circle'}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Number of Pegs</span>
+                      <span className="text-sm">{(generation.settings as { pegs?: number })?.pegs || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Number of Lines</span>
+                      <span className="text-sm">{(generation.settings as { lines?: number })?.lines || 'N/A'}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Line Weight</span>
+                      <span className="text-sm">{(generation.settings as { lineWeight?: number })?.lineWeight || 'N/A'}</span>
+                    </div>
               </div>
             </CardContent>
           </Card>

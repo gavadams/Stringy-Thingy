@@ -36,7 +36,7 @@ export default async function DashboardPage() {
   const [stats, kitCodes] = await Promise.all([
     getGenerationStats(currentUser.user.id),
     getUserKitCodes(currentUser.user.id)
-  ]) as [typeof stats, KitCode[]];
+  ]);
 
   return (
     <div className="container mx-auto px-4 py-8">

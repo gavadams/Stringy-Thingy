@@ -293,8 +293,8 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
     
     try {
       await downloadInstructionsPDF({
-        lines: result.lines,
-        pegs: result.pegs,
+        lines: result.lines as { from: number; to: number }[],
+        pegs: result.pegs as { x: number; y: number }[],
         settings: params,
         kitType: 'standard'
       });
@@ -302,8 +302,8 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
       console.error('PDF generation failed:', error);
       // Fallback to text instructions
       downloadTextInstructions({
-        lines: result.lines,
-        pegs: result.pegs,
+        lines: result.lines as { from: number; to: number }[],
+        pegs: result.pegs as { x: number; y: number }[],
         settings: params,
         kitType: 'standard'
       });

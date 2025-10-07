@@ -113,7 +113,7 @@ export default function GeneratePage() {
         user_id: user.id,
         kit_code_id: selectedKitCode.id,
         image_url: uploadedImageUrl,
-        settings: result.settings,
+        settings: result.settings as Record<string, unknown>,
         pattern_data: result
       });
 
