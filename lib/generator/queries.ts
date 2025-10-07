@@ -251,7 +251,14 @@ export async function incrementKitUsage(codeId: string): Promise<boolean> {
 /**
  * Get user's active kit codes
  */
-export async function getUserKitCodes(userId: string): Promise<unknown[]> {
+export async function getUserKitCodes(userId: string): Promise<{
+  id: string;
+  code: string;
+  kit_type: string;
+  max_generations: number;
+  used_count: number;
+  created_at: string;
+}[]> {
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
