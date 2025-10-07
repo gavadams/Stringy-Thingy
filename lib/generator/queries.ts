@@ -31,10 +31,7 @@ export interface GenerationStats {
  */
 export async function getGenerationById(id: string): Promise<Generation | null> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     const { data, error } = await supabase
       .from('user_generations')
@@ -59,10 +56,7 @@ export async function getGenerationById(id: string): Promise<Generation | null> 
  */
 export async function getUserGenerations(userId: string, limit: number = 50, offset: number = 0): Promise<Generation[]> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     const { data, error } = await supabase
       .from('generations')
@@ -88,10 +82,7 @@ export async function getUserGenerations(userId: string, limit: number = 50, off
  */
 export async function createGeneration(data: GenerationData): Promise<Generation | null> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     const { data: generation, error } = await supabase
       .from('user_generations')
@@ -116,10 +107,7 @@ export async function createGeneration(data: GenerationData): Promise<Generation
  */
 export async function deleteGeneration(id: string, userId: string): Promise<boolean> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     const { error } = await supabase
       .from('user_generations')
@@ -144,10 +132,7 @@ export async function deleteGeneration(id: string, userId: string): Promise<bool
  */
 export async function getGenerationStats(userId: string): Promise<GenerationStats> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     // Get total generations
     const { count: totalGenerations } = await supabase
@@ -196,10 +181,7 @@ export async function getGenerationStats(userId: string): Promise<GenerationStat
  */
 export async function canUserGenerate(userId: string, codeId: string): Promise<boolean> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     const { data: kitCode, error } = await supabase
       .from('kit_codes')
@@ -227,10 +209,7 @@ export async function canUserGenerate(userId: string, codeId: string): Promise<b
  */
 export async function incrementKitUsage(codeId: string): Promise<boolean> {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
     
     const { error } = await supabase.rpc('increment_kit_usage', {
       code_id: codeId
@@ -263,13 +242,6 @@ export async function getUserKitCodes(userId: string): Promise<{
     // Use the same client instance that has the auth context
     const supabase = createClient();
     
-    console.log('getUserKitCodes - Querying for user:', userId);
-    
-    // First, let's check what auth.uid() returns
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    console.log('getUserKitCodes - Auth user:', authUser?.id);
-    console.log('getUserKitCodes - User ID match:', authUser?.id === userId);
-    
     const { data, error } = await supabase
       .from('kit_codes')
       .select('*')
@@ -277,14 +249,11 @@ export async function getUserKitCodes(userId: string): Promise<{
       .eq('is_active', true)
       .order('created_at', { ascending: false });
 
-    console.log('getUserKitCodes - Query result:', { data, error });
-
     if (error) {
       console.error('Error fetching user kit codes:', error);
       return [];
     }
 
-    console.log('getUserKitCodes - Returning:', data || []);
     return data || [];
   } catch (error) {
     console.error('Error fetching user kit codes:', error);
