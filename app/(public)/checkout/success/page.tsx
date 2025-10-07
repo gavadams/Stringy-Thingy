@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { useCartStore, useCartStoreNoPersist } from '@/lib/cart/store';
+import { useCartStore } from '@/lib/cart/store';
 
 interface OrderDetails {
   id: string;
@@ -37,29 +37,12 @@ interface OrderDetails {
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const sessionId = searchParams.get('session_id');
-  const { clearCartAfterPurchase } = useCartStoreNoPersist();
+  const { clearCartAfterPurchase } = useCartStore();
   
   // Clear cart immediately when component mounts (success page)
   useEffect(() => {
     console.log('Success page mounted, clearing cart immediately');
-    
-    // Clear the non-persistent store
     clearCartAfterPurchase();
-    
-    // Also clear the persistent store directly
-    const persistentStore = useCartStore.getState();
-    persistentStore.clearCartAfterPurchase();
-    
-    // Also directly manipulate localStorage as backup
-    try {
-      localStorage.removeItem('cart-storage');
-      localStorage.removeItem('cart');
-      localStorage.removeItem('shopping-cart');
-      localStorage.setItem('cart-cleared-timestamp', Date.now().toString());
-      console.log('Direct localStorage clearing completed');
-    } catch (error) {
-      console.error('Error in direct localStorage clearing:', error);
-    }
   }, [clearCartAfterPurchase]);
   
   const [order, setOrder] = useState<OrderDetails | null>(null);
@@ -109,17 +92,12 @@ function CheckoutSuccessContent() {
       setError(null);
       
       // Clear the cart since the order was successful
-      console.log('About to clear cart, current cart state:', { 
-        items: useCartStore.getState().items.length,
-        total: useCartStore.getState().getTotal()
-      });
-      
-      // Clear cart immediately to prevent any restore
+      console.log('Order successful, ensuring cart is cleared');
       clearCartAfterPurchase();
       
-      // Verify cart is cleared after a short delay
+      // Verify cart is cleared
       setTimeout(() => {
-        console.log('Cart cleared after successful order, final state:', { 
+        console.log('Cart state after order:', { 
           items: useCartStore.getState().items.length,
           total: useCartStore.getState().getTotal()
         });
