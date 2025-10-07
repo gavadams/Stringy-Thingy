@@ -212,8 +212,16 @@ const StringArtConverter: React.FC<StringArtConverterProps> = ({
       const lines: { from: number; to: number }[] = [];
       let currentPeg = 0;
       
-      const resultCanvas = resultCanvasRef.current;
-      if (!resultCanvas) throw new Error('Result canvas not found');
+      let resultCanvas = resultCanvasRef.current;
+      if (!resultCanvas) {
+        console.error('Result canvas not found, retrying...');
+        // Wait a bit and try again
+        await new Promise(resolve => setTimeout(resolve, 100));
+        resultCanvas = resultCanvasRef.current;
+        if (!resultCanvas) {
+          throw new Error('Result canvas not found - please try again');
+        }
+      }
       
       resultCanvas.width = size;
       resultCanvas.height = size;
