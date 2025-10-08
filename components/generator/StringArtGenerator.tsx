@@ -495,7 +495,11 @@ export default function StringArtGenerator({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {result && <canvas ref={resultCanvasRef} className="w-full rounded-xl border" />}
+            <canvas 
+              ref={resultCanvasRef} 
+              className="w-full rounded-xl border" 
+              style={{ display: result ? 'block' : 'none' }}
+            />
             
             {!result && !isGenerating && (
               <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
