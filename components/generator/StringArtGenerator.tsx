@@ -1,7 +1,7 @@
 // components/generator/StringArtGenerator.tsx
 'use client';
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -56,18 +56,18 @@ export default function StringArtGenerator({
   const defaultQuality = kitCode.pegs >= 300 ? 'high' : kitCode.pegs >= 200 ? 'balanced' : 'fast';
   const [qualityPreset, setQualityPreset] = useState<'fast'|'balanced'|'high'>(defaultQuality);
 
-  const presets = {
+  const presets = useMemo(() => ({
     fast: { upscale: 1, beamWidth: 1, sampleStep: 1, lineWeight: 18 },
     balanced: { upscale: 2, beamWidth: 2, sampleStep: 1, lineWeight: 14 },
     high: { upscale: 3, beamWidth: 3, sampleStep: 1, lineWeight: 12 }
-  };
+  }), []);
 
-  const dynamicSettings = {
+  const dynamicSettings = useMemo(() => ({
     pins: kitCode.pegs,
     strings: kitCode.max_lines,
     minLoop: Math.max(10, Math.floor(kitCode.pegs / 12)),
     fade: 22
-  };
+  }), [kitCode.pegs, kitCode.max_lines]);
 
   // ---------- Bresenham: returns [x,y,x,y,...] ----------
   const bresenham = useCallback((x0: number, y0: number, x1: number, y1: number): number[] => {
@@ -406,7 +406,6 @@ export default function StringArtGenerator({
     } catch (err) {
       setIsGenerating(false);
       setCurrentStep('');
-      // eslint-disable-next-line no-console
       console.error('Generation error', err);
       alert('Error: ' + (err instanceof Error ? err.message : String(err)));
     }
@@ -536,7 +535,7 @@ export default function StringArtGenerator({
           </div>
           <div>
             <label className="text-sm font-medium block mb-2">Quality</label>
-            <select value={qualityPreset} onChange={(e) => setQualityPreset(e.target.value as any)} disabled={disabled || isGenerating} className="w-full">
+            <select value={qualityPreset} onChange={(e) => setQualityPreset(e.target.value as 'fast'|'balanced'|'high')} disabled={disabled || isGenerating} className="w-full">
               <option value="fast">Fast (preview)</option>
               <option value="balanced">Balanced</option>
               <option value="high">High detail</option>
