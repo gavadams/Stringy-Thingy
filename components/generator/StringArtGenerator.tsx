@@ -49,189 +49,45 @@ export default function StringArtGenerator({
   disabled
 }: StringArtGeneratorProps) {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
-  const offscreenCanvasRef = useRef<HTMLCanvasElement>(null);
+  const processCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [currentLine, setCurrentLine] = useState(0);
-  const [totalLines, setTotalLines] = useState(0);
   const [lines, setLines] = useState<Line[]>([]);
   const [pins, setPins] = useState<Point[]>([]);
+  const cancelRef = useRef(false);
+  
   const [settings, setSettings] = useState({
     pegs: kitCode.pegs,
     maxLines: kitCode.max_lines,
-    lineOpacity: 0.3,
-    lineWidth: 1,
-    shape: 'circle' as 'circle' | 'square',
-    minLoop: 20
+    lineOpacity: 30, // 0-100 scale
+    minLoop: 30, // Minimum distance between pins
+    shape: 'circle' as 'circle' | 'square'
   });
 
-  // Image manipulation state
-  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
-  const [imageScale, setImageScale] = useState(1);
-  const [imageRotation, setImageRotation] = useState(0);
-
-
-
-  // Generate pins in a circle or square pattern
-  const generatePins = useCallback((numPins: number, shape: 'circle' | 'square'): Point[] => {
+  // Generate pins around a circle
+  const generatePins = useCallback((numPins: number, canvasSize: number): Point[] => {
     const pins: Point[] = [];
-    const centerX = 200;
-    const centerY = 200;
-    const radius = 180;
+    const center = canvasSize / 2;
+    const radius = (canvasSize / 2) - 20; // Leave margin
     
     for (let i = 0; i < numPins; i++) {
-      const angle = (2 * Math.PI * i) / numPins;
-      let x: number, y: number;
-      
-      if (shape === 'circle') {
-        x = centerX + radius * Math.cos(angle);
-        y = centerY + radius * Math.sin(angle);
-      } else {
-        // Square pattern
-        const side = Math.floor(numPins / 4);
-        const sideIndex = i % side;
-        const sideNum = Math.floor(i / side);
-        
-        switch (sideNum) {
-          case 0: // Top
-            x = 20 + (sideIndex * (360 / side));
-            y = 20;
-            break;
-          case 1: // Right
-            x = 380;
-            y = 20 + (sideIndex * (360 / side));
-            break;
-          case 2: // Bottom
-            x = 380 - (sideIndex * (360 / side));
-            y = 380;
-            break;
-          default: // Left
-            x = 20;
-            y = 380 - (sideIndex * (360 / side));
-            break;
-        }
-      }
-      
-      pins.push({ x: Math.round(x), y: Math.round(y) });
+      const angle = (2 * Math.PI * i) / numPins - Math.PI / 2; // Start from top
+      pins.push({
+        x: Math.round(center + radius * Math.cos(angle)),
+        y: Math.round(center + radius * Math.sin(angle))
+      });
     }
     
     return pins;
   }, []);
 
-  // Convert image to grayscale and get image data with transformations
-  const processImageData = useCallback((image: HTMLImageElement): Uint8ClampedArray => {
-    const canvas = offscreenCanvasRef.current;
-    if (!canvas) throw new Error('Offscreen canvas not found');
-    
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas context not found');
-    
-    canvas.width = 400;
-    canvas.height = 400;
-    
-    // Clear canvas
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, 400, 400);
-    
-    // Apply transformations
-    ctx.save();
-    ctx.translate(200, 200); // Center of canvas
-    ctx.translate(imagePosition.x, imagePosition.y); // Apply position
-    ctx.rotate((imageRotation * Math.PI) / 180); // Apply rotation
-    ctx.scale(imageScale, imageScale); // Apply scale
-    
-    // Draw image centered
-    const imageSize = 200;
-    ctx.drawImage(image, -imageSize / 2, -imageSize / 2, imageSize, imageSize);
-    ctx.restore();
-    
-    // Convert to grayscale
-    const imageData = ctx.getImageData(0, 0, 400, 400);
-    const data = imageData.data;
-    
-    for (let i = 0; i < data.length; i += 4) {
-      const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-      data[i] = gray;     // R
-      data[i + 1] = gray; // G
-      data[i + 2] = gray; // B
-      // Alpha stays the same
-    }
-    
-    ctx.putImageData(imageData, 0, 0);
-    return data;
-  }, [imagePosition, imageScale, imageRotation]);
-
-
-  // Pre-calculate all possible lines between pins (optimization from Go version)
-  const precalculateLines = useCallback((pins: Point[], minDistance: number) => {
-    const lineCache: { [key: string]: { xs: number[], ys: number[] } } = {};
-    
-    for (let i = 0; i < pins.length; i++) {
-      for (let j = i + minDistance; j < pins.length; j++) {
-        const key1 = `${i}-${j}`;
-        const key2 = `${j}-${i}`;
-        
-        const x0 = pins[i].x;
-        const y0 = pins[i].y;
-        const x1 = pins[j].x;
-        const y1 = pins[j].y;
-        
-        const distance = Math.floor(Math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2));
-        const xs = linspace(x0, x1, distance);
-        const ys = linspace(y0, y1, distance);
-        
-        lineCache[key1] = { xs, ys };
-        lineCache[key2] = { xs, ys };
-      }
-    }
-    
-    return lineCache;
-  }, []);
-
-  // Linear interpolation function
-  const linspace = useCallback((start: number, end: number, num: number): number[] => {
-    if (num <= 1) return [start];
-    const result: number[] = [];
-    const step = (end - start) / (num - 1);
-    for (let i = 0; i < num; i++) {
-      result.push(Math.floor(start + i * step));
-    }
-    return result;
-  }, []);
-
-  // Calculate line error using cached coordinates (optimized from Go version)
-  const calculateLineErrorFromCache = useCallback((xs: number[], ys: number[], errorMatrix: Float32Array, width: number): number => {
-    let totalError = 0;
-    for (let i = 0; i < xs.length; i++) {
-      const x = xs[i];
-      const y = ys[i];
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = y * width + x;
-        totalError += errorMatrix[idx];
-      }
-    }
-    return totalError;
-  }, []);
-
-  // Update error matrix using cached coordinates (optimized from Go version)
-  const updateErrorMatrixFromCache = useCallback((xs: number[], ys: number[], errorMatrix: Float32Array, width: number, lineWeight: number) => {
-    for (let i = 0; i < xs.length; i++) {
-      const x = xs[i];
-      const y = ys[i];
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = y * width + x;
-        // Reduce error where line is drawn (this is the key insight!)
-        errorMatrix[idx] = Math.max(0, errorMatrix[idx] - lineWeight);
-      }
-    }
-  }, []);
-
-  // Simple line scoring using Bresenham algorithm
-  const calculateLineScoreSimple = useCallback((x0: number, y0: number, x1: number, y1: number, errorMatrix: Float32Array, width: number): number => {
+  // Bresenham line algorithm to get all pixels in a line
+  const getLinePixels = useCallback((x0: number, y0: number, x1: number, y1: number): Point[] => {
+    const pixels: Point[] = [];
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
     const sx = x0 < x1 ? 1 : -1;
@@ -240,15 +96,9 @@ export default function StringArtGenerator({
     
     let x = x0;
     let y = y0;
-    let totalError = 0;
-    let pixelCount = 0;
     
     while (true) {
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = y * width + x;
-        totalError += errorMatrix[idx];
-        pixelCount++;
-      }
+      pixels.push({ x, y });
       
       if (x === x1 && y === y1) break;
       
@@ -263,122 +113,153 @@ export default function StringArtGenerator({
       }
     }
     
-    return pixelCount > 0 ? totalError : 0;
+    return pixels;
   }, []);
 
-  // Reduce error along a line
-  const reduceErrorAlongLine = useCallback((x0: number, y0: number, x1: number, y1: number, errorMatrix: Float32Array, width: number, lineWeight: number) => {
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
+  // Calculate how much a line would reduce error (darkness) in the image
+  const calculateLineScore = useCallback((
+    pin1: Point,
+    pin2: Point,
+    imageData: Uint8ClampedArray,
+    width: number
+  ): number => {
+    const pixels = getLinePixels(pin1.x, pin1.y, pin2.x, pin2.y);
+    let score = 0;
     
-    let x = x0;
-    let y = y0;
-    
-    while (true) {
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = y * width + x;
-        errorMatrix[idx] = Math.max(0, errorMatrix[idx] - lineWeight);
-      }
-      
-      if (x === x1 && y === y1) break;
-      
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y += sy;
+    for (const pixel of pixels) {
+      if (pixel.x >= 0 && pixel.x < width && pixel.y >= 0 && pixel.y < width) {
+        const idx = (pixel.y * width + pixel.x) * 4;
+        // Score is based on darkness (lower grayscale value = higher score)
+        score += (255 - imageData[idx]);
       }
     }
-  }, []);
+    
+    return score;
+  }, [getLinePixels]);
 
-  // Simplified but correct string art algorithm
+  // Reduce darkness along a line (simulate drawing the line)
+  const reduceDarkness = useCallback((
+    pin1: Point,
+    pin2: Point,
+    imageData: Uint8ClampedArray,
+    width: number,
+    amount: number
+  ) => {
+    const pixels = getLinePixels(pin1.x, pin1.y, pin2.x, pin2.y);
+    
+    for (const pixel of pixels) {
+      if (pixel.x >= 0 && pixel.x < width && pixel.y >= 0 && pixel.y < width) {
+        const idx = (pixel.y * width + pixel.x) * 4;
+        // Lighten the pixel (increase RGB values)
+        imageData[idx] = Math.min(255, imageData[idx] + amount);
+        imageData[idx + 1] = Math.min(255, imageData[idx + 1] + amount);
+        imageData[idx + 2] = Math.min(255, imageData[idx + 2] + amount);
+      }
+    }
+  }, [getLinePixels]);
+
+  // Main generation algorithm
   const generateStringArt = useCallback(async () => {
-    if (!image || !resultCanvasRef.current) return;
+    if (!image || !resultCanvasRef.current || !processCanvasRef.current) return;
     
     setIsGenerating(true);
     setProgress(0);
-    setCurrentLine(0);
     setLines([]);
+    cancelRef.current = false;
     
     try {
-      // Create image element
+      const canvasSize = 600; // Increased for better quality
+      
+      // Load and process image
       const img = new Image();
       img.src = URL.createObjectURL(image);
-      
       await new Promise((resolve, reject) => {
         img.onload = resolve;
         img.onerror = reject;
       });
       
-      // Process image data
-      const imageData = processImageData(img);
-      const generatedPins = generatePins(settings.pegs, settings.shape);
-      setPins(generatedPins);
+      // Setup processing canvas
+      const processCanvas = processCanvasRef.current;
+      processCanvas.width = canvasSize;
+      processCanvas.height = canvasSize;
+      const processCtx = processCanvas.getContext('2d', { willReadFrequently: true });
+      if (!processCtx) throw new Error('Cannot get processing context');
       
-      // Initialize result canvas
-      const resultCanvas = resultCanvasRef.current;
-      resultCanvas.width = 400;
-      resultCanvas.height = 400;
-      const ctx = resultCanvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context not found');
+      // Draw and convert to grayscale
+      processCtx.fillStyle = '#ffffff';
+      processCtx.fillRect(0, 0, canvasSize, canvasSize);
       
-      // Clear canvas with white background
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, 400, 400);
-      ctx.strokeStyle = '#000000';
-      ctx.lineWidth = settings.lineWidth;
-      ctx.globalAlpha = settings.lineOpacity;
+      // Draw image in center circle
+      const imgSize = canvasSize - 40;
+      processCtx.save();
+      processCtx.beginPath();
+      processCtx.arc(canvasSize / 2, canvasSize / 2, imgSize / 2, 0, Math.PI * 2);
+      processCtx.clip();
+      processCtx.drawImage(img, 20, 20, imgSize, imgSize);
+      processCtx.restore();
       
-      // Create simple error matrix - dark areas need more lines
-      const errorMatrix = new Float32Array(400 * 400);
-      for (let y = 0; y < 400; y++) {
-        for (let x = 0; x < 400; x++) {
-          const pixelIndex = (y * 400 + x) * 4;
-          const gray = imageData[pixelIndex]; // R channel (grayscale)
-          const errorIndex = y * 400 + x;
-          // Dark pixels (low gray values) = high error (need more lines)
-          errorMatrix[errorIndex] = 255 - gray;
-        }
+      // Get and convert to grayscale
+      const imgData = processCtx.getImageData(0, 0, canvasSize, canvasSize);
+      const data = imgData.data;
+      
+      for (let i = 0; i < data.length; i += 4) {
+        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+        data[i] = gray;
+        data[i + 1] = gray;
+        data[i + 2] = gray;
       }
       
+      // Generate pins
+      const generatedPins = generatePins(settings.pegs, canvasSize);
+      setPins(generatedPins);
+      
+      // Setup result canvas
+      const resultCanvas = resultCanvasRef.current;
+      resultCanvas.width = canvasSize;
+      resultCanvas.height = canvasSize;
+      const ctx = resultCanvas.getContext('2d');
+      if (!ctx) throw new Error('Cannot get result context');
+      
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvasSize, canvasSize);
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 0.8;
+      ctx.globalAlpha = settings.lineOpacity / 100;
+      ctx.lineCap = 'round';
+      
+      // Generate lines
       const generatedLines: Line[] = [];
       let currentPin = 0;
-      const maxLines = Math.min(settings.maxLines, settings.pegs * 15);
-      setTotalLines(maxLines);
+      const maxLines = Math.min(settings.maxLines, settings.pegs * 20);
+      const minLoop = settings.minLoop;
       
-      // Simple line generation
-      const batchSize = 10;
-      let lineCount = 0;
-      
-      for (let i = 0; i < maxLines; i++) {
-        let bestScore = -1;
-        let bestPin = 0;
+      for (let lineNum = 0; lineNum < maxLines; lineNum++) {
+        if (cancelRef.current) break;
         
-        // Find the best next pin by testing all other pins
-        for (let j = 0; j < settings.pegs; j++) {
-          if (j === currentPin) continue;
+        let bestScore = -1;
+        let bestPin = -1;
+        
+        // Find best next pin
+        for (let testPin = 0; testPin < settings.pegs; testPin++) {
+          // Skip if too close
+          const distance = Math.abs(testPin - currentPin);
+          if (distance < minLoop && distance > 0 && (settings.pegs - distance) > minLoop) continue;
           
-          // Calculate how much this line would help (sum error along line)
-          const score = calculateLineScoreSimple(
-            generatedPins[currentPin].x,
-            generatedPins[currentPin].y,
-            generatedPins[j].x,
-            generatedPins[j].y,
-            errorMatrix,
-            400
+          // Calculate score
+          const score = calculateLineScore(
+            generatedPins[currentPin],
+            generatedPins[testPin],
+            data,
+            canvasSize
           );
           
           if (score > bestScore) {
             bestScore = score;
-            bestPin = j;
+            bestPin = testPin;
           }
         }
+        
+        if (bestPin === -1 || bestScore < 100) break; // No good line found
         
         // Draw the line
         ctx.beginPath();
@@ -386,42 +267,41 @@ export default function StringArtGenerator({
         ctx.lineTo(generatedPins[bestPin].x, generatedPins[bestPin].y);
         ctx.stroke();
         
-        // Reduce error where line was drawn
-        reduceErrorAlongLine(
-          generatedPins[currentPin].x,
-          generatedPins[currentPin].y,
-          generatedPins[bestPin].x,
-          generatedPins[bestPin].y,
-          errorMatrix,
-          400,
-          20 // Line weight
+        // Reduce darkness where line was drawn
+        reduceDarkness(
+          generatedPins[currentPin],
+          generatedPins[bestPin],
+          data,
+          canvasSize,
+          settings.lineOpacity / 2 // Proportional to opacity
         );
         
         generatedLines.push({ from: currentPin, to: bestPin });
         currentPin = bestPin;
-        lineCount++;
         
-        // Update progress
-        if (lineCount % batchSize === 0) {
-          setProgress((lineCount / maxLines) * 100);
-          setCurrentLine(lineCount);
+        // Update progress periodically
+        if (lineNum % 10 === 0) {
+          setProgress((lineNum / maxLines) * 100);
           setLines([...generatedLines]);
-          
-          // Allow UI to update
-          await new Promise(resolve => setTimeout(resolve, 10));
+          await new Promise(resolve => setTimeout(resolve, 0)); // Let UI update
         }
       }
       
-      // Final update
+      // Draw pins
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#333333';
+      for (const pin of generatedPins) {
+        ctx.beginPath();
+        ctx.arc(pin.x, pin.y, 2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      
       setProgress(100);
-      setCurrentLine(maxLines);
       setLines(generatedLines);
       
-      // Convert to data URL
       const resultDataUrl = resultCanvas.toDataURL('image/png');
       setResult(resultDataUrl);
       
-      // Call completion callback
       onComplete({
         pattern: resultDataUrl,
         settings: settings,
@@ -430,25 +310,32 @@ export default function StringArtGenerator({
       
     } catch (error) {
       console.error('Generation error:', error);
-      alert('Error generating string art: ' + (error as Error).message);
+      alert('Error: ' + (error as Error).message);
     } finally {
       setIsGenerating(false);
     }
-  }, [image, settings, processImageData, generatePins, calculateLineScoreSimple, reduceErrorAlongLine, onComplete]);
+  }, [image, settings, generatePins, calculateLineScore, reduceDarkness, onComplete]);
 
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImageUpload(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setImagePreview(e.target?.result as string);
+      reader.readAsDataURL(file);
+    }
+  }, [onImageUpload]);
 
-  // Download functions
   const downloadInstructions = useCallback(() => {
     if (!result || !lines.length) return;
-    
     downloadInstructionsPDF({
-      lines: lines,
+      lines,
       pegs: pins,
       settings: {
         pegs: settings.pegs,
-        lines: settings.maxLines,
-        lineWeight: settings.lineWidth,
-        frameShape: settings.shape
+        lines: settings.maxLines, // Map maxLines to lines
+        lineWeight: settings.lineOpacity / 100, // Convert percentage to 0-1 range
+        frameShape: settings.shape // Map shape to frameShape
       },
       imagePreview: result,
       kitType: kitCode.kit_type
@@ -457,116 +344,16 @@ export default function StringArtGenerator({
 
   const downloadImage = useCallback(() => {
     if (!result) return;
-    
     const link = document.createElement('a');
     link.download = 'string-art-pattern.png';
     link.href = result;
     link.click();
   }, [result]);
 
-  // Handle image upload
-  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      onImageUpload(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }, [onImageUpload]);
-
-  // Handle drag and drop
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file && file.type.startsWith('image/')) {
-      onImageUpload(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  }, [onImageUpload]);
-
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Settings Panel */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              Settings
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">Pegs (Locked)</label>
-              <div className="text-2xl font-bold text-blue-600">{settings.pegs}</div>
-              <p className="text-xs text-gray-500">Based on your kit type</p>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium">Max Lines (Locked)</label>
-              <div className="text-2xl font-bold text-blue-600">{settings.maxLines}</div>
-              <p className="text-xs text-gray-500">Based on your kit type</p>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium">Line Opacity</label>
-              <input
-                type="range"
-                min="0.1"
-                max="1"
-                step="0.1"
-                value={settings.lineOpacity}
-                onChange={(e) => setSettings(prev => ({ ...prev, lineOpacity: parseFloat(e.target.value) }))}
-                className="w-full"
-                disabled={disabled}
-              />
-              <div className="text-sm text-gray-600">{settings.lineOpacity}</div>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium">Line Width</label>
-              <input
-                type="range"
-                min="0.5"
-                max="3"
-                step="0.5"
-                value={settings.lineWidth}
-                onChange={(e) => setSettings(prev => ({ ...prev, lineWidth: parseFloat(e.target.value) }))}
-                className="w-full"
-                disabled={disabled}
-              />
-              <div className="text-sm text-gray-600">{settings.lineWidth}</div>
-            </div>
-            
-            <div>
-              <label className="text-sm font-medium">Frame Shape</label>
-              <select
-                value={settings.shape}
-                onChange={(e) => setSettings(prev => ({ ...prev, shape: e.target.value as 'circle' | 'square' }))}
-                className="w-full p-2 border rounded"
-                disabled={disabled}
-              >
-                <option value="circle">Circle</option>
-                <option value="square">Square</option>
-              </select>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Image Upload */}
-      <div className="lg:col-span-2">
+    <div className="space-y-6">
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Upload Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -577,42 +364,37 @@ export default function StringArtGenerator({
           <CardContent>
             {!image ? (
               <div
-                className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-                onDragOver={handleDragOver}
-                onDrop={handleDrop}
+                className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:bg-gray-50 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
               >
-                <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-lg font-medium text-gray-600 mb-2">
-                  Drop your image here or click to browse
-                </p>
-                <p className="text-sm text-gray-500">
-                  Supports JPG, PNG, WebP (max 10MB, min 400x400px)
-                </p>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
+                <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                <p className="font-medium text-gray-700 mb-2">Click to upload image</p>
+                <p className="text-sm text-gray-500">JPG, PNG (min 400x400px)</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="relative">
-                  <img
-                    src={imagePreview || ''}
-                    alt="Upload preview"
-                    className="w-full h-64 object-cover rounded-xl border border-gray-200"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="absolute top-2 right-2"
-                    onClick={() => {
-                      setImagePreview(null);
+                <img 
+                  src={imagePreview || ''} 
+                  alt="Preview" 
+                  className="w-full rounded-xl border border-gray-200" 
+                />
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1" 
+                    onClick={() => fileInputRef.current?.click()}
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Change Image
+                  </Button>
+                  <Button 
+                    variant="destructive" 
+                    size="icon" 
+                    onClick={() => { 
+                      setImagePreview(null); 
                       onImageUpload(null);
-                      // Reset the file input
+                      setResult(null);
+                      setLines([]);
                       if (fileInputRef.current) {
                         fileInputRef.current.value = '';
                       }
@@ -621,179 +403,19 @@ export default function StringArtGenerator({
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    onClick={() => fileInputRef.current?.click()}
-                    variant="outline"
-                    className="flex-1"
-                  >
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Change Image
-                  </Button>
-                  <Button
-                    onClick={generateStringArt}
-                    disabled={isProcessing || disabled || isGenerating}
-                    className="flex-1"
-                  >
-                    {isGenerating ? 'Generating...' : 'Generate String Art'}
-                  </Button>
-                </div>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleImageUpload}
-                  className="hidden"
-                />
               </div>
             )}
+            <input 
+              ref={fileInputRef} 
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageUpload} 
+              className="hidden" 
+            />
           </CardContent>
         </Card>
-      </div>
 
-      {/* Image Manipulation */}
-      {image && (
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Settings className="w-5 h-5" />
-                Position & Size Image
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-6">
-                {/* Frame Preview */}
-                <div className="relative w-full h-64 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div 
-                      className={`border-2 border-blue-500 bg-blue-50 bg-opacity-50 ${
-                        settings.shape === 'circle' ? 'rounded-full' : 'rounded-lg'
-                      }`}
-                      style={{
-                        width: `${Math.min(200, 200 * imageScale)}px`,
-                        height: `${Math.min(200, 200 * imageScale)}px`,
-                        transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) rotate(${imageRotation}deg)`,
-                        transition: 'transform 0.1s ease'
-                      }}
-                    >
-                      <img
-                        src={imagePreview || ''}
-                        alt="Positioned image"
-                        className="w-full h-full object-cover rounded-inherit"
-                        style={{
-                          transform: `scale(${imageScale})`
-                        }}
-                      />
-                    </div>
-                  </div>
-                  
-                  {/* Frame outline */}
-                  <div 
-                    className={`absolute border-2 border-gray-400 ${
-                      settings.shape === 'circle' ? 'rounded-full' : 'rounded-lg'
-                    }`}
-                    style={{
-                      width: '200px',
-                      height: '200px',
-                      top: '50%',
-                      left: '50%',
-                      transform: 'translate(-50%, -50%)'
-                    }}
-                  />
-                </div>
-
-                {/* Controls */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {/* Position Controls */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Position</h4>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs text-gray-600">X Position</label>
-                        <input
-                          type="range"
-                          min="-100"
-                          max="100"
-                          value={imagePosition.x}
-                          onChange={(e) => setImagePosition(prev => ({ ...prev, x: parseInt(e.target.value) }))}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-gray-500">{imagePosition.x}px</div>
-                      </div>
-                      <div>
-                        <label className="text-xs text-gray-600">Y Position</label>
-                        <input
-                          type="range"
-                          min="-100"
-                          max="100"
-                          value={imagePosition.y}
-                          onChange={(e) => setImagePosition(prev => ({ ...prev, y: parseInt(e.target.value) }))}
-                          className="w-full"
-                        />
-                        <div className="text-xs text-gray-500">{imagePosition.y}px</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Scale Control */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Size</h4>
-                    <div>
-                      <label className="text-xs text-gray-600">Scale</label>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="2"
-                        step="0.1"
-                        value={imageScale}
-                        onChange={(e) => setImageScale(parseFloat(e.target.value))}
-                        className="w-full"
-                      />
-                      <div className="text-xs text-gray-500">{Math.round(imageScale * 100)}%</div>
-                    </div>
-                  </div>
-
-                  {/* Rotation Control */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">Rotation</h4>
-                    <div>
-                      <label className="text-xs text-gray-600">Angle</label>
-                      <input
-                        type="range"
-                        min="0"
-                        max="360"
-                        value={imageRotation}
-                        onChange={(e) => setImageRotation(parseInt(e.target.value))}
-                        className="w-full"
-                      />
-                      <div className="text-xs text-gray-500">{imageRotation}°</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Reset Button */}
-                <div className="flex justify-center">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => {
-                      setImagePosition({ x: 0, y: 0 });
-                      setImageScale(1);
-                      setImageRotation(0);
-                    }}
-                  >
-                    Reset Position
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      {/* Canvas Preview */}
-      <div className="lg:col-span-2">
+        {/* Result */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -802,72 +424,145 @@ export default function StringArtGenerator({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <canvas
-                ref={resultCanvasRef}
-                className="w-full rounded-xl border border-gray-200"
-                style={{ display: result ? 'block' : 'none' }}
-              />
-              {!result && (
-                <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 h-[400px] flex items-center justify-center">
-                  <div>
-                    <p className="text-gray-500 text-lg">Your string art will appear here</p>
-                    {image && (
-                      <Button
-                        onClick={generateStringArt}
-                        disabled={isProcessing || disabled || isGenerating}
-                        className="mt-6"
-                      >
-                        {isGenerating ? 'Generating...' : 'Generate String Art'}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-              {/* Progress Bar */}
-              {isGenerating && (
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span>Generating...</span>
-                    <span>{currentLine} / {totalLines} lines</span>
-                  </div>
-                  <Progress value={progress} className="w-full" />
-                </div>
-              )}
-              
-              {result && (
-                <div className="flex gap-3">
-                  <Button
-                    onClick={downloadInstructions}
-                    className="flex-1"
-                    variant="outline"
-                  >
+            {result ? (
+              <div className="space-y-4">
+                <canvas 
+                  ref={resultCanvasRef} 
+                  className="w-full rounded-xl border border-gray-200" 
+                />
+                <div className="flex gap-2">
+                  <Button onClick={downloadInstructions} className="flex-1">
                     <Download className="w-4 h-4 mr-2" />
                     Instructions (PDF)
                   </Button>
-                  <Button
-                    onClick={downloadImage}
-                    className="flex-1"
-                    variant="outline"
-                  >
+                  <Button onClick={downloadImage} variant="outline" className="flex-1">
                     <Download className="w-4 h-4 mr-2" />
-                    Pattern
+                    Pattern (PNG)
                   </Button>
                 </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
+                <Zap className="w-16 h-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 mb-4">Pattern will appear here</p>
+                {image && (
+                  <Button 
+                    onClick={generateStringArt} 
+                    disabled={isGenerating || disabled}
+                    size="lg"
+                  >
+                    {isGenerating ? (
+                      <>
+                        <span className="animate-spin mr-2">⚙️</span>
+                        Generating...
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 mr-2" />
+                        Generate String Art
+                      </>
+                    )}
+                  </Button>
+                )}
+              </div>
+            )}
+            {isGenerating && (
+              <div className="mt-4 space-y-2">
+                <Progress value={progress} className="h-2" />
+                <p className="text-sm text-center text-gray-600">
+                  {Math.round(progress)}% - Drawing {lines.length} lines...
+                </p>
+                <p className="text-xs text-center text-gray-500">
+                  This may take 2-5 minutes. Please don't close this tab.
+                </p>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Hidden offscreen canvas for processing */}
-      <canvas
-        ref={offscreenCanvasRef}
-        style={{ display: 'none' }}
-        width={400}
-        height={400}
-      />
+      {/* Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Settings
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="grid md:grid-cols-4 gap-6">
+          <div>
+            <label className="text-sm font-medium text-gray-600 block mb-2">
+              Pegs (Locked)
+            </label>
+            <div className="text-3xl font-bold text-blue-600">{settings.pegs}</div>
+            <p className="text-xs text-gray-500 mt-1">From your kit</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600 block mb-2">
+              Max Lines (Locked)
+            </label>
+            <div className="text-3xl font-bold text-blue-600">{settings.maxLines}</div>
+            <p className="text-xs text-gray-500 mt-1">From your kit</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600 block mb-2">
+              Line Opacity: {settings.lineOpacity}%
+            </label>
+            <input
+              type="range"
+              min="10"
+              max="50"
+              value={settings.lineOpacity}
+              onChange={(e) => setSettings(prev => ({ ...prev, lineOpacity: parseInt(e.target.value) }))}
+              className="w-full"
+              disabled={disabled || isGenerating}
+            />
+            <p className="text-xs text-gray-500 mt-1">Adjust darkness</p>
+          </div>
+          <div>
+            <label className="text-sm font-medium text-gray-600 block mb-2">
+              Min Distance: {settings.minLoop}
+            </label>
+            <input
+              type="range"
+              min="20"
+              max="50"
+              value={settings.minLoop}
+              onChange={(e) => setSettings(prev => ({ ...prev, minLoop: parseInt(e.target.value) }))}
+              className="w-full"
+              disabled={disabled || isGenerating}
+            />
+            <p className="text-xs text-gray-500 mt-1">Pin spacing</p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Kit Info */}
+      <Card className="bg-blue-50 border-blue-200">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-600">
+                Using kit code: <span className="font-mono font-semibold text-blue-600">{kitCode.code}</span>
+              </p>
+              <p className="text-sm text-gray-600 mt-1">
+                Kit type: <span className="font-semibold capitalize">{kitCode.kit_type}</span>
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600">
+                Remaining generations:
+              </p>
+              <p className="text-2xl font-bold text-blue-600">
+                {kitCode.max_generations - kitCode.used_count}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Hidden processing canvas */}
+      <canvas ref={processCanvasRef} style={{ display: 'none' }} />
     </div>
   );
 }
