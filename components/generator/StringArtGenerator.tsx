@@ -26,7 +26,6 @@ interface StringArtGeneratorProps {
   }) => void;
   onImageUpload: (file: File | null) => void;
   image: File | null;
-  isProcessing: boolean;
   disabled: boolean;
 }
 
@@ -45,7 +44,6 @@ export default function StringArtGenerator({
   onComplete,
   onImageUpload,
   image,
-  isProcessing,
   disabled
 }: StringArtGeneratorProps) {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -473,7 +471,7 @@ export default function StringArtGenerator({
                   {Math.round(progress)}% - Drawing {lines.length} lines...
                 </p>
                 <p className="text-xs text-center text-gray-500">
-                  This may take 2-5 minutes. Please don't close this tab.
+                  This may take 2-5 minutes. Please don&apos;t close this tab.
                 </p>
               </div>
             )}
