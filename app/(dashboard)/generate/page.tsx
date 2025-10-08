@@ -235,7 +235,6 @@ export default function GeneratePage() {
             onComplete={handleGenerate}
             onImageUpload={handleImageUpload}
             image={imageFile}
-            isProcessing={processing}
             disabled={remaining <= 0}
           />
         )}
