@@ -436,12 +436,13 @@ export default function StringArtGenerator({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {result ? (
-              <div className="space-y-4">
-                <canvas 
-                  ref={resultCanvasRef} 
-                  className="w-full rounded-xl border border-gray-200" 
-                />
+            <div className="space-y-4">
+              <canvas 
+                ref={resultCanvasRef} 
+                className="w-full rounded-xl border border-gray-200" 
+                style={{ display: result ? 'block' : 'none' }}
+              />
+              {result && (
                 <div className="flex gap-2">
                   <Button onClick={downloadInstructions} className="flex-1">
                     <Download className="w-4 h-4 mr-2" />
@@ -452,35 +453,36 @@ export default function StringArtGenerator({
                     Pattern (PNG)
                   </Button>
                 </div>
-              </div>
-            ) : (
-              <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
-                <Zap className="w-16 h-16 text-gray-300 mb-4" />
-                <p className="text-gray-500 mb-4">Pattern will appear here</p>
-                {image && (
-                  <Button 
-                    onClick={() => {
-                      console.log('Generate button clicked');
-                      generateStringArt();
-                    }} 
-                    disabled={isGenerating || disabled}
-                    size="lg"
-                  >
-                    {isGenerating ? (
-                      <>
-                        <span className="animate-spin mr-2">⚙️</span>
-                        Generating...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-4 h-4 mr-2" />
-                        Generate String Art
-                      </>
-                    )}
-                  </Button>
-                )}
-              </div>
-            )}
+              )}
+              {!result && (
+                <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
+                  <Zap className="w-16 h-16 text-gray-300 mb-4" />
+                  <p className="text-gray-500 mb-4">Pattern will appear here</p>
+                  {image && (
+                    <Button 
+                      onClick={() => {
+                        console.log('Generate button clicked');
+                        generateStringArt();
+                      }} 
+                      disabled={isGenerating || disabled}
+                      size="lg"
+                    >
+                      {isGenerating ? (
+                        <>
+                          <span className="animate-spin mr-2">⚙️</span>
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-4 h-4 mr-2" />
+                          Generate String Art
+                        </>
+                      )}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
             {isGenerating && (
               <div className="mt-4 space-y-2">
                 <Progress value={progress} className="h-2" />
