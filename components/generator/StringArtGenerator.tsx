@@ -4,7 +4,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Download, Zap, Settings } from 'lucide-react';
+import { Download, Upload, X, Zap, Settings, Image as ImageIcon } from 'lucide-react';
 import { downloadInstructionsPDF } from '@/lib/generator/pdf';
 
 interface KitCode {
@@ -24,7 +24,7 @@ interface StringArtGeneratorProps {
     settings: Record<string, unknown>;
     lines: { from: number; to: number }[];
   }) => void;
-  onImageUpload: (file: File) => void;
+  onImageUpload: (file: File | null) => void;
   image: File | null;
   isProcessing: boolean;
   disabled: boolean;
@@ -50,6 +50,9 @@ export default function StringArtGenerator({
 }: StringArtGeneratorProps) {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const offscreenCanvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -322,6 +325,37 @@ export default function StringArtGenerator({
     link.click();
   }, [result]);
 
+  // Handle image upload
+  const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      onImageUpload(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [onImageUpload]);
+
+  // Handle drag and drop
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file && file.type.startsWith('image/')) {
+      onImageUpload(file);
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setImagePreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  }, [onImageUpload]);
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       {/* Settings Panel */}
@@ -388,6 +422,92 @@ export default function StringArtGenerator({
                 <option value="square">Square</option>
               </select>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Image Upload */}
+      <div className="lg:col-span-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Upload className="w-5 h-5" />
+              Upload Image
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {!image ? (
+              <div
+                className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
+                onDragOver={handleDragOver}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-lg font-medium text-gray-600 mb-2">
+                  Drop your image here or click to browse
+                </p>
+                <p className="text-sm text-gray-500">
+                  Supports JPG, PNG, WebP (max 10MB, min 400x400px)
+                </p>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="relative">
+                  <img
+                    src={imagePreview || ''}
+                    alt="Upload preview"
+                    className="w-full h-64 object-cover rounded-xl border border-gray-200"
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="absolute top-2 right-2"
+                    onClick={() => {
+                      setImagePreview(null);
+                      onImageUpload(null);
+                      // Reset the file input
+                      if (fileInputRef.current) {
+                        fileInputRef.current.value = '';
+                      }
+                    }}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => fileInputRef.current?.click()}
+                    variant="outline"
+                    className="flex-1"
+                  >
+                    <ImageIcon className="w-4 h-4 mr-2" />
+                    Change Image
+                  </Button>
+                  <Button
+                    onClick={generateStringArt}
+                    disabled={isProcessing || disabled || isGenerating}
+                    className="flex-1"
+                  >
+                    {isGenerating ? 'Generating...' : 'Generate String Art'}
+                  </Button>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

@@ -81,7 +81,7 @@ export default function GeneratePage() {
     setSelectedKitCode(kitCode || null);
   };
 
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = (file: File | null) => {
     setImageFile(file);
     setError(null);
   };
