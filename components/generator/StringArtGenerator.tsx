@@ -4,7 +4,7 @@ import React, { useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { Download, Upload, X, Zap, Settings, Image as ImageIcon, Info } from 'lucide-react';
+import { Download, Upload, X, Zap, Settings, Image as ImageIcon, Info, AlertCircle } from 'lucide-react';
 import { downloadInstructionsPDF } from '@/lib/generator/pdf';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
@@ -49,6 +49,7 @@ export default function StringArtGenerator({
 }: StringArtGeneratorProps) {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const sourceCanvasRef = useRef<HTMLCanvasElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -58,19 +59,18 @@ export default function StringArtGenerator({
   const [currentStep, setCurrentStep] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [pins, setPins] = useState<Point[]>([]);
-  const cancelRef = useRef(false);
   
   const [settings, setSettings] = useState({
     pins: kitCode.pegs,
     strings: kitCode.max_lines,
-    minLoop: Math.max(20, Math.floor(kitCode.pegs / 10)),
-    opacity: 25, // Line opacity (lower = darker lines)
-    lineWeight: 15, // How much to reduce darkness per line
+    minLoop: Math.max(30, Math.floor(kitCode.pegs / 8)),
+    fade: 20, // Line opacity (0-255, lower = more transparent)
+    lineWeight: 20, // How much darkness to remove per line
   });
 
-  // Bresenham line algorithm - optimized version
-  const bresenham = useCallback((x0: number, y0: number, x1: number, y1: number): Point[] => {
-    const points: Point[] = [];
+  // Bresenham's line algorithm - returns all pixels in a line
+  const bresenham = useCallback((x0: number, y0: number, x1: number, y1: number): number[] => {
+    const coords: number[] = [];
     const dx = Math.abs(x1 - x0);
     const dy = Math.abs(y1 - y0);
     const sx = x0 < x1 ? 1 : -1;
@@ -81,7 +81,7 @@ export default function StringArtGenerator({
     let y = y0;
 
     while (true) {
-      points.push({ x, y });
+      coords.push(x, y);
       if (x === x1 && y === y1) break;
 
       const e2 = 2 * err;
@@ -95,274 +95,259 @@ export default function StringArtGenerator({
       }
     }
 
-    return points;
+    return coords;
   }, []);
 
-  // Generate pins in a circle
-  const generatePins = useCallback((numPins: number, size: number): Point[] => {
-    const pins: Point[] = [];
-    const center = size / 2;
-    const radius = center - 20;
+  // Generate pins around circle
+  const generatePins = useCallback((numPins: number, diameter: number): Float32Array => {
+    const pins = new Float32Array(numPins * 2);
+    const radius = diameter / 2;
+    const center = radius;
     
     for (let i = 0; i < numPins; i++) {
       const angle = (2 * Math.PI * i) / numPins;
-      pins.push({
-        x: Math.round(center + radius * Math.cos(angle)),
-        y: Math.round(center + radius * Math.sin(angle))
-      });
+      pins[i * 2] = center + (radius - 10) * Math.cos(angle);
+      pins[i * 2 + 1] = center + (radius - 10) * Math.sin(angle);
     }
     
     return pins;
   }, []);
 
-  // Pre-calculate and cache all valid lines between pins
-  const precalculateLineCache = useCallback((pins: Point[], minDistance: number): Map<string, Point[]> => {
-    const cache = new Map<string, Point[]>();
-    const numPins = pins.length;
-    
-    for (let i = 0; i < numPins; i++) {
-      for (let j = i + minDistance; j < numPins; j++) {
-        // Check both directions meet minimum distance
-        if (j - i >= minDistance && numPins - j + i >= minDistance) {
-          const pixels = bresenham(pins[i].x, pins[i].y, pins[j].x, pins[j].y);
-          cache.set(`${i}-${j}`, pixels);
-          cache.set(`${j}-${i}`, pixels); // Bidirectional
-        }
-      }
-    }
-    
-    return cache;
-  }, [bresenham]);
-
-  // Calculate score for a line (sum of darkness along line)
-  const scoreLine = useCallback((
-    pixels: Point[],
-    imageData: Uint8ClampedArray,
+  // Calculate line score based on darkness
+  const lineScore = useCallback((
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    pixels: Uint8ClampedArray,
     width: number
   ): number => {
-    let totalDarkness = 0;
+    const coords = bresenham(
+      Math.round(x0),
+      Math.round(y0),
+      Math.round(x1),
+      Math.round(y1)
+    );
     
-    for (const p of pixels) {
-      if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < width) {
-        const idx = (p.y * width + p.x) * 4;
-        // Darkness = 255 - brightness (so dark pixels have high values)
-        totalDarkness += (255 - imageData[idx]);
+    let score = 0;
+    for (let i = 0; i < coords.length; i += 2) {
+      const x = coords[i];
+      const y = coords[i + 1];
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = (y * width + x) * 4;
+        score += (255 - pixels[idx]);
       }
     }
     
-    // Return average darkness per pixel
-    return totalDarkness / pixels.length;
-  }, []);
+    return score / (coords.length / 2);
+  }, [bresenham]);
 
-  // Reduce darkness along a line path
-  const reduceLine = useCallback((
-    pixels: Point[],
-    imageData: Uint8ClampedArray,
+  // Draw line and reduce darkness
+  const drawLine = useCallback((
+    x0: number,
+    y0: number,
+    x1: number,
+    y1: number,
+    pixels: Uint8ClampedArray,
     width: number,
-    amount: number
+    weight: number
   ) => {
-    for (const p of pixels) {
-      if (p.x >= 0 && p.x < width && p.y >= 0 && p.y < width) {
-        const idx = (p.y * width + p.x) * 4;
-        // Lighten pixel (reduce darkness need)
-        const newValue = Math.min(255, imageData[idx] + amount);
-        imageData[idx] = newValue;
-        imageData[idx + 1] = newValue;
-        imageData[idx + 2] = newValue;
+    const coords = bresenham(
+      Math.round(x0),
+      Math.round(y0),
+      Math.round(x1),
+      Math.round(y1)
+    );
+    
+    for (let i = 0; i < coords.length; i += 2) {
+      const x = coords[i];
+      const y = coords[i + 1];
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = (y * width + x) * 4;
+        const newVal = Math.min(255, pixels[idx] + weight);
+        pixels[idx] = newVal;
+        pixels[idx + 1] = newVal;
+        pixels[idx + 2] = newVal;
       }
     }
-  }, []);
+  }, [bresenham]);
 
-  // Main algorithm
   const generateStringArt = useCallback(async () => {
-    console.log('generateStringArt called', { 
-      image: !!image, 
-      resultCanvasRef: !!resultCanvasRef.current, 
-      sourceCanvasRef: !!sourceCanvasRef.current 
-    });
-    
-    // Add a small delay to ensure canvas is rendered
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    console.log('After delay:', { 
-      resultCanvasRef: !!resultCanvasRef.current, 
-      sourceCanvasRef: !!sourceCanvasRef.current 
-    });
-    
-    if (!image || !sourceCanvasRef.current) {
-      console.log('Missing requirements:', { 
-        image: !!image, 
-        sourceCanvasRef: !!sourceCanvasRef.current 
-      });
-      return;
-    }
-    
-    // If resultCanvasRef is not available, create a temporary canvas
-    let resultCanvas = resultCanvasRef.current;
-    if (!resultCanvas) {
-      console.log('Creating temporary canvas...');
-      resultCanvas = document.createElement('canvas');
-      resultCanvas.width = 600;
-      resultCanvas.height = 600;
-    }
-    
-    console.log('Starting generation...');
+    if (!image) return;
     
     setIsGenerating(true);
     setProgress(0);
-    setCurrentStep('Loading image...');
+    setCurrentStep('Initializing...');
     setLines([]);
-    cancelRef.current = false;
     
     try {
-      const SIZE = 800; // High resolution for quality
+      const SIZE = 1000; // Higher resolution
       
-      // Load image
+      setCurrentStep('Loading image...');
+      setProgress(5);
+      
       const img = new Image();
-      img.src = URL.createObjectURL(image);
+      const imageUrl = URL.createObjectURL(image);
+      img.src = imageUrl;
+      
       await new Promise((resolve, reject) => {
         img.onload = resolve;
-        img.onerror = reject;
+        img.onerror = () => reject(new Error('Failed to load image'));
       });
       
       setCurrentStep('Processing image...');
-      setProgress(5);
+      setProgress(10);
       
-      // Setup source canvas
-      const sourceCanvas = sourceCanvasRef.current;
+      // Process image on source canvas
+      const sourceCanvas = document.createElement('canvas');
       sourceCanvas.width = SIZE;
       sourceCanvas.height = SIZE;
       const sourceCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
-      if (!sourceCtx) throw new Error('Cannot get source context');
+      if (!sourceCtx) throw new Error('Failed to get source context');
       
       // White background
       sourceCtx.fillStyle = '#FFFFFF';
       sourceCtx.fillRect(0, 0, SIZE, SIZE);
       
-      // Draw image in circular mask
+      // Draw in circle
       sourceCtx.save();
       sourceCtx.beginPath();
       sourceCtx.arc(SIZE / 2, SIZE / 2, SIZE / 2 - 10, 0, Math.PI * 2);
       sourceCtx.clip();
       
-      // Scale to fill circle
       const scale = Math.max(SIZE / img.width, SIZE / img.height);
-      const scaledW = img.width * scale;
-      const scaledH = img.height * scale;
-      const x = (SIZE - scaledW) / 2;
-      const y = (SIZE - scaledH) / 2;
+      const sw = img.width * scale;
+      const sh = img.height * scale;
+      const sx = (SIZE - sw) / 2;
+      const sy = (SIZE - sh) / 2;
       
-      sourceCtx.drawImage(img, x, y, scaledW, scaledH);
+      sourceCtx.drawImage(img, sx, sy, sw, sh);
       sourceCtx.restore();
       
-      // Get image data
-      const imgData = sourceCtx.getImageData(0, 0, SIZE, SIZE);
-      const data = imgData.data;
+      URL.revokeObjectURL(imageUrl);
+      
+      // Get and process pixels
+      const imageData = sourceCtx.getImageData(0, 0, SIZE, SIZE);
+      const pixels = imageData.data;
       
       // Convert to grayscale
-      for (let i = 0; i < data.length; i += 4) {
-        const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-        data[i] = gray;
-        data[i + 1] = gray;
-        data[i + 2] = gray;
+      for (let i = 0; i < pixels.length; i += 4) {
+        const gray = pixels[i] * 0.2126 + pixels[i + 1] * 0.7152 + pixels[i + 2] * 0.0722;
+        pixels[i] = gray;
+        pixels[i + 1] = gray;
+        pixels[i + 2] = gray;
       }
       
-      // Enhance contrast - critical for good results!
-      const contrastFactor = 1.5;
-      for (let i = 0; i < data.length; i += 4) {
-        let gray = data[i];
-        // Apply contrast
-        gray = ((gray / 255 - 0.5) * contrastFactor + 0.5) * 255;
-        // Clamp and apply slight gamma correction
-        gray = Math.pow(Math.max(0, Math.min(255, gray)) / 255, 0.9) * 255;
-        data[i] = gray;
-        data[i + 1] = gray;
-        data[i + 2] = gray;
+      // Apply strong contrast and edge enhancement
+      setCurrentStep('Enhancing contrast...');
+      setProgress(15);
+      
+      // First pass: increase contrast
+      for (let i = 0; i < pixels.length; i += 4) {
+        let gray = pixels[i];
+        // Strong S-curve contrast
+        gray = gray / 255;
+        gray = gray < 0.5 
+          ? 2 * gray * gray 
+          : 1 - 2 * (1 - gray) * (1 - gray);
+        gray = gray * 255;
+        
+        // Apply threshold to enhance edges
+        if (gray < 128) {
+          gray = Math.max(0, gray - 20);
+        } else {
+          gray = Math.min(255, gray + 20);
+        }
+        
+        pixels[i] = gray;
+        pixels[i + 1] = gray;
+        pixels[i + 2] = gray;
       }
       
       setCurrentStep('Generating pins...');
-      setProgress(10);
-      
-      // Generate pins
-      const generatedPins = generatePins(settings.pins, SIZE);
-      setPins(generatedPins);
-      
-      setCurrentStep('Pre-calculating line paths (this may take a minute)...');
-      setProgress(15);
-      
-      // Pre-calculate all valid lines - THIS IS THE KEY OPTIMIZATION
-      const lineCache = precalculateLineCache(generatedPins, settings.minLoop);
-      
-      console.log(`Generated ${lineCache.size} possible lines`);
-      
-      setCurrentStep('Drawing string art...');
       setProgress(20);
       
-      // Setup result canvas (already defined above)
+      const pinsArray = generatePins(settings.pins, SIZE);
+      const pinsPoints: Point[] = [];
+      for (let i = 0; i < pinsArray.length; i += 2) {
+        pinsPoints.push({ x: pinsArray[i], y: pinsArray[i + 1] });
+      }
+      setPins(pinsPoints);
+      
+      setCurrentStep('Creating string art...');
+      setProgress(25);
+      
+      // Create result canvas
+      const resultCanvas = document.createElement('canvas');
       resultCanvas.width = SIZE;
       resultCanvas.height = SIZE;
       const ctx = resultCanvas.getContext('2d');
-      if (!ctx) throw new Error('Cannot get result context');
+      if (!ctx) throw new Error('Failed to get result context');
       
-      // White background
       ctx.fillStyle = '#FFFFFF';
       ctx.fillRect(0, 0, SIZE, SIZE);
       ctx.strokeStyle = '#000000';
-      ctx.lineWidth = 1;
-      ctx.globalAlpha = settings.opacity / 100;
+      ctx.lineWidth = 0.7;
+      ctx.globalAlpha = settings.fade / 255;
       ctx.lineCap = 'round';
       
-      // Generate lines using greedy algorithm
+      // String art algorithm
       const generatedLines: Line[] = [];
       let currentPin = 0;
-      const maxStrings = Math.min(settings.strings, settings.pins * 25);
+      const maxStrings = settings.strings;
+      const minLoop = settings.minLoop;
       
-      for (let stringNum = 0; stringNum < maxStrings; stringNum++) {
-        if (cancelRef.current) break;
-        
+      for (let s = 0; s < maxStrings; s++) {
         let bestScore = -1;
         let bestPin = -1;
-        let bestPixels: Point[] | null = null;
         
-        // Test all valid next pins
-        for (let nextPin = 0; nextPin < settings.pins; nextPin++) {
-          if (nextPin === currentPin) continue;
+        // Find best next pin
+        for (let testPin = 0; testPin < settings.pins; testPin++) {
+          if (testPin === currentPin) continue;
           
-          // Get cached line pixels
-          const cacheKey = `${currentPin}-${nextPin}`;
-          const pixels = lineCache.get(cacheKey);
-          if (!pixels) continue; // Skip if not in cache (too close)
+          // Check minimum distance
+          const dist = Math.abs(testPin - currentPin);
+          if (dist < minLoop && dist > 0 && (settings.pins - dist) > minLoop) {
+            continue;
+          }
           
-          // Calculate score for this line
-          const score = scoreLine(pixels, data, SIZE);
+          const x0 = pinsArray[currentPin * 2];
+          const y0 = pinsArray[currentPin * 2 + 1];
+          const x1 = pinsArray[testPin * 2];
+          const y1 = pinsArray[testPin * 2 + 1];
+          
+          const score = lineScore(x0, y0, x1, y1, pixels, SIZE);
           
           if (score > bestScore) {
             bestScore = score;
-            bestPin = nextPin;
-            bestPixels = pixels;
+            bestPin = testPin;
           }
         }
         
-        // Break if no good line found
-        if (bestPin === -1 || bestScore < 10 || !bestPixels) break;
+        if (bestPin === -1 || bestScore < 5) break;
         
-        // Draw the line on result canvas
+        const x0 = pinsArray[currentPin * 2];
+        const y0 = pinsArray[currentPin * 2 + 1];
+        const x1 = pinsArray[bestPin * 2];
+        const y1 = pinsArray[bestPin * 2 + 1];
+        
+        // Draw line
         ctx.beginPath();
-        ctx.moveTo(generatedPins[currentPin].x, generatedPins[currentPin].y);
-        ctx.lineTo(generatedPins[bestPin].x, generatedPins[bestPin].y);
+        ctx.moveTo(x0, y0);
+        ctx.lineTo(x1, y1);
         ctx.stroke();
         
-        // Reduce darkness in source data
-        reduceLine(bestPixels, data, SIZE, settings.lineWeight);
+        // Update pixel data
+        drawLine(x0, y0, x1, y1, pixels, SIZE, settings.lineWeight);
         
         generatedLines.push({ from: currentPin, to: bestPin });
         currentPin = bestPin;
         
         // Update progress
-        if (stringNum % 25 === 0) {
-          const progressPercent = 20 + (stringNum / maxStrings) * 70;
-          setProgress(progressPercent);
-          setCurrentStep(`Drawing line ${stringNum + 1} of ${maxStrings}...`);
+        if (s % 50 === 0) {
+          const prog = 25 + (s / maxStrings) * 70;
+          setProgress(prog);
+          setCurrentStep(`Drawing string ${s + 1} of ${maxStrings}...`);
           setLines([...generatedLines]);
           await new Promise(resolve => setTimeout(resolve, 0));
         }
@@ -371,46 +356,49 @@ export default function StringArtGenerator({
       setCurrentStep('Finalizing...');
       setProgress(95);
       
-      // Draw pins on top
+      // Draw pins
       ctx.globalAlpha = 1;
-      ctx.fillStyle = '#1a1a1a';
-      for (const pin of generatedPins) {
+      ctx.fillStyle = '#000000';
+      for (let i = 0; i < pinsArray.length; i += 2) {
         ctx.beginPath();
-        ctx.arc(pin.x, pin.y, 2.5, 0, Math.PI * 2);
+        ctx.arc(pinsArray[i], pinsArray[i + 1], 2, 0, Math.PI * 2);
         ctx.fill();
+      }
+      
+      setLines(generatedLines);
+      
+      const dataUrl = resultCanvas.toDataURL('image/png', 0.95);
+      setResult(dataUrl);
+      
+      // Update the actual canvas ref if it exists
+      if (resultCanvasRef.current) {
+        const displayCtx = resultCanvasRef.current.getContext('2d');
+        if (displayCtx) {
+          resultCanvasRef.current.width = SIZE;
+          resultCanvasRef.current.height = SIZE;
+          displayCtx.drawImage(resultCanvas, 0, 0);
+        }
       }
       
       setProgress(100);
       setCurrentStep('Complete!');
-      setLines(generatedLines);
-      
-      const resultDataUrl = resultCanvas.toDataURL('image/png', 0.95);
-      setResult(resultDataUrl);
       
       console.log(`Generated ${generatedLines.length} lines`);
       
       onComplete({
-        pattern: resultDataUrl,
+        pattern: dataUrl,
         settings: settings,
         lines: generatedLines
       });
       
     } catch (error) {
       console.error('Generation error:', error);
-      alert('Error generating string art: ' + (error as Error).message);
+      setCurrentStep('');
+      alert('Error: ' + (error as Error).message);
     } finally {
       setIsGenerating(false);
-      setCurrentStep('');
     }
-  }, [
-    image,
-    settings,
-    generatePins,
-    precalculateLineCache,
-    scoreLine,
-    reduceLine,
-    onComplete
-  ]);
+  }, [image, settings, generatePins, lineScore, drawLine, onComplete]);
 
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -432,7 +420,7 @@ export default function StringArtGenerator({
       settings: {
         pegs: settings.pins,
         lines: settings.strings,
-        lineWeight: settings.opacity / 100,
+        lineWeight: settings.fade / 255,
         frameShape: 'circle'
       },
       imagePreview: result,
@@ -450,17 +438,14 @@ export default function StringArtGenerator({
 
   return (
     <div className="space-y-6">
-      {/* Tips Alert */}
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Best results:</strong> Use high-contrast portraits with clear subjects. 
-          Avoid busy backgrounds. The algorithm works best with faces and simple subjects.
+          <strong>Pro tip:</strong> Best results with high-contrast images. Try increasing contrast in your photo editor before uploading.
         </AlertDescription>
       </Alert>
 
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Upload Section */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -475,197 +460,119 @@ export default function StringArtGenerator({
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
-                <p className="font-medium text-gray-700 mb-2">Click to upload image</p>
-                <p className="text-sm text-gray-500">
-                  JPG, PNG • Min 800x800px • High contrast works best
-                </p>
+                <p className="font-medium text-gray-700 mb-2">Click to upload</p>
+                <p className="text-sm text-gray-500">JPG, PNG • 1000x1000px+ recommended</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <img 
-                  src={imagePreview || ''} 
-                  alt="Preview" 
-                  className="w-full rounded-xl border border-gray-200" 
-                />
+                <img src={imagePreview || ''} alt="Preview" className="w-full rounded-xl border" />
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="flex-1" 
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isGenerating}
-                  >
+                  <Button variant="outline" className="flex-1" onClick={() => fileInputRef.current?.click()} disabled={isGenerating}>
                     <ImageIcon className="w-4 h-4 mr-2" />
                     Change
                   </Button>
-                  <Button 
-                    variant="destructive" 
-                    size="icon" 
-                    onClick={() => { 
-                      setImagePreview(null); 
-                      onImageUpload(null);
-                      setResult(null);
-                      setLines([]);
-                      if (fileInputRef.current) fileInputRef.current.value = '';
-                    }}
-                    disabled={isGenerating}
-                  >
+                  <Button variant="destructive" size="icon" onClick={() => { 
+                    setImagePreview(null); 
+                    onImageUpload(null);
+                    setResult(null);
+                    setLines([]);
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }} disabled={isGenerating}>
                     <X className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
             )}
-            <input 
-              ref={fileInputRef} 
-              type="file" 
-              accept="image/*" 
-              onChange={handleImageUpload} 
-              className="hidden" 
-            />
+            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
           </CardContent>
         </Card>
 
-        {/* Result */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Zap className="w-5 h-5" />
-              String Art Pattern
+              Result
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              {result && (
-                <canvas 
-                  ref={resultCanvasRef} 
-                  className="w-full rounded-xl border border-gray-200" 
-                />
-              )}
-              
-              {!result && !isGenerating && (
-                <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
-                  <Zap className="w-16 h-16 text-gray-300 mb-4" />
-                  <p className="text-gray-500 mb-4">Pattern will appear here</p>
-                  {image && (
-                    <Button 
-                      onClick={() => {
-                        console.log('Generate button clicked');
-                        console.log('Button state:', { isGenerating, disabled });
-                        generateStringArt();
-                      }} 
-                      disabled={disabled}
-                      size="lg"
-                    >
-                      <Zap className="w-4 h-4 mr-2" />
-                      Generate String Art
-                    </Button>
-                  )}
-                </div>
-              )}
-              
-              {isGenerating && (
-                <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
-                  <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
-                  <p className="text-lg font-medium text-gray-700 mb-2">{currentStep}</p>
-                  <div className="w-full max-w-md mt-4">
-                    <Progress value={progress} className="h-2" />
-                    <p className="text-sm text-gray-500 mt-2">{Math.round(progress)}%</p>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-4">
-                    This may take 3-8 minutes depending on settings
-                  </p>
-                </div>
-              )}
-              
-              {result && (
-                <div className="flex gap-2">
-                  <Button onClick={downloadInstructions} className="flex-1">
-                    <Download className="w-4 h-4 mr-2" />
-                    Instructions (PDF)
+            {result && <canvas ref={resultCanvasRef} className="w-full rounded-xl border" />}
+            
+            {!result && !isGenerating && (
+              <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
+                <Zap className="w-16 h-16 text-gray-300 mb-4" />
+                <p className="text-gray-500 mb-4">Pattern will appear here</p>
+                {image && (
+                  <Button onClick={generateStringArt} disabled={disabled} size="lg">
+                    <Zap className="w-4 h-4 mr-2" />
+                    Generate String Art
                   </Button>
-                  <Button onClick={downloadImage} variant="outline" className="flex-1">
-                    <Download className="w-4 h-4 mr-2" />
-                    Pattern (PNG)
-                  </Button>
+                )}
+              </div>
+            )}
+            
+            {isGenerating && (
+              <div className="border-2 rounded-xl p-12 text-center min-h-[400px] flex flex-col items-center justify-center">
+                <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
+                <p className="text-lg font-medium mb-2">{currentStep}</p>
+                <div className="w-full max-w-md mt-4">
+                  <Progress value={progress} className="h-2" />
+                  <p className="text-sm text-gray-500 mt-2">{Math.round(progress)}%</p>
                 </div>
-              )}
-            </div>
+                <p className="text-xs text-gray-500 mt-4">This takes 4-8 minutes</p>
+              </div>
+            )}
+            
+            {result && (
+              <div className="flex gap-2 mt-4">
+                <Button onClick={downloadInstructions} className="flex-1">
+                  <Download className="w-4 h-4 mr-2" />
+                  PDF Instructions
+                </Button>
+                <Button onClick={downloadImage} variant="outline" className="flex-1">
+                  <Download className="w-4 h-4 mr-2" />
+                  PNG Pattern
+                </Button>
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
 
-      {/* Settings */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Settings className="w-5 h-5" />
-            Advanced Settings
-          </CardTitle>
+          <CardTitle><Settings className="w-5 h-5 inline mr-2" />Settings</CardTitle>
         </CardHeader>
-        <CardContent className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <CardContent className="grid md:grid-cols-4 gap-4">
           <div>
-            <label className="text-sm font-medium text-gray-600 block mb-2">
-              Pins (Locked)
-            </label>
+            <label className="text-sm font-medium block mb-2">Pins (Locked)</label>
             <div className="text-3xl font-bold text-blue-600">{settings.pins}</div>
-            <p className="text-xs text-gray-500 mt-1">Based on your kit</p>
           </div>
-          
           <div>
-            <label className="text-sm font-medium text-gray-600 block mb-2">
-              Max Lines (Locked)
-            </label>
+            <label className="text-sm font-medium block mb-2">Lines (Locked)</label>
             <div className="text-3xl font-bold text-blue-600">{settings.strings}</div>
-            <p className="text-xs text-gray-500 mt-1">Based on your kit</p>
           </div>
-          
           <div>
-            <label className="text-sm font-medium text-gray-600 block mb-2">
-              Line Darkness: {settings.opacity}%
-            </label>
-            <input
-              type="range"
-              min="15"
-              max="40"
-              value={settings.opacity}
-              onChange={(e) => setSettings(prev => ({ ...prev, opacity: parseInt(e.target.value) }))}
-              className="w-full"
-              disabled={disabled || isGenerating}
-            />
-            <p className="text-xs text-gray-500 mt-1">Lower = darker lines</p>
+            <label className="text-sm font-medium block mb-2">Darkness: {settings.fade}</label>
+            <input type="range" min="10" max="35" value={settings.fade} onChange={(e) => setSettings(p => ({ ...p, fade: parseInt(e.target.value) }))} className="w-full" disabled={disabled || isGenerating} />
+            <p className="text-xs text-gray-500 mt-1">Lower = darker</p>
           </div>
-          
           <div>
-            <label className="text-sm font-medium text-gray-600 block mb-2">
-              Line Weight: {settings.lineWeight}
-            </label>
-            <input
-              type="range"
-              min="10"
-              max="25"
-              value={settings.lineWeight}
-              onChange={(e) => setSettings(prev => ({ ...prev, lineWeight: parseInt(e.target.value) }))}
-              className="w-full"
-              disabled={disabled || isGenerating}
-            />
-            <p className="text-xs text-gray-500 mt-1">How much each line covers</p>
+            <label className="text-sm font-medium block mb-2">Weight: {settings.lineWeight}</label>
+            <input type="range" min="15" max="30" value={settings.lineWeight} onChange={(e) => setSettings(p => ({ ...p, lineWeight: parseInt(e.target.value) }))} className="w-full" disabled={disabled || isGenerating} />
+            <p className="text-xs text-gray-500 mt-1">Coverage amount</p>
           </div>
         </CardContent>
       </Card>
 
-      {/* Kit Info */}
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200">
+      <Card className="bg-gradient-to-r from-blue-50 to-purple-50">
         <CardContent className="pt-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">
-                Kit Code: <span className="font-mono font-semibold text-blue-600 text-base">{kitCode.code}</span>
-              </p>
-              <p className="text-sm text-gray-600 mt-1">
-                Type: <span className="font-semibold capitalize text-purple-600">{kitCode.kit_type}</span>
-              </p>
+              <p className="text-sm">Code: <span className="font-mono font-semibold text-blue-600">{kitCode.code}</span></p>
+              <p className="text-sm">Type: <span className="font-semibold capitalize">{kitCode.kit_type}</span></p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-gray-600">Generations Left</p>
+              <p className="text-sm text-gray-600">Remaining</p>
               <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {kitCode.max_generations - kitCode.used_count}
               </p>
@@ -674,8 +581,8 @@ export default function StringArtGenerator({
         </CardContent>
       </Card>
 
-      {/* Hidden canvases */}
       <canvas ref={sourceCanvasRef} style={{ display: 'none' }} />
+      <canvas ref={previewCanvasRef} style={{ display: 'none' }} />
     </div>
   );
 }
