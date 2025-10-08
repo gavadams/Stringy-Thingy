@@ -75,42 +75,6 @@ export default function StringArtGenerator({
   const [imageRotation, setImageRotation] = useState(0);
 
 
-  // Optimized line scoring using Uint8ClampedArray
-  const scoreLine = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number): number => {
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
-    
-    let x = x0;
-    let y = y0;
-    let score = 0;
-    let pixelCount = 0;
-    
-    while (true) {
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = (y * width + x) * 4;
-        const gray = imageData[idx]; // R channel (grayscale)
-        score += gray;
-        pixelCount++;
-      }
-      
-      if (x === x1 && y === y1) break;
-      
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y += sy;
-      }
-    }
-    
-    return pixelCount > 0 ? score / pixelCount : 0;
-  }, []);
 
   // Generate pins in a circle or square pattern
   const generatePins = useCallback((numPins: number, shape: 'circle' | 'square'): Point[] => {
@@ -200,6 +164,77 @@ export default function StringArtGenerator({
     ctx.putImageData(imageData, 0, 0);
     return data;
   }, [imagePosition, imageScale, imageRotation]);
+
+  // Improved line scoring algorithm
+  const calculateLineScore = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number): number => {
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    
+    let x = x0;
+    let y = y0;
+    let score = 0;
+    let pixelCount = 0;
+    
+    while (true) {
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = (y * width + x) * 4;
+        const gray = imageData[idx]; // R channel (grayscale)
+        score += gray;
+        pixelCount++;
+      }
+      
+      if (x === x1 && y === y1) break;
+      
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+    
+    return pixelCount > 0 ? score / pixelCount : 0;
+  }, []);
+
+  // Update image data to reduce score for drawn lines
+  const updateImageDataForLine = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number) => {
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    
+    let x = x0;
+    let y = y0;
+    
+    while (true) {
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = (y * width + x) * 4;
+        // Reduce the pixel value to make it less attractive for future lines
+        imageData[idx] = Math.max(0, imageData[idx] - 20);
+        imageData[idx + 1] = Math.max(0, imageData[idx + 1] - 20);
+        imageData[idx + 2] = Math.max(0, imageData[idx + 2] - 20);
+      }
+      
+      if (x === x1 && y === y1) break;
+      
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }, []);
 
   // Main generation algorithm with progressive rendering
   const generateStringArt = useCallback(async () => {
@@ -329,77 +364,6 @@ export default function StringArtGenerator({
       setIsGenerating(false);
     }
   }, [image, settings, processImageData, generatePins, calculateLineScore, updateImageDataForLine, onComplete]);
-
-  // Improved line scoring algorithm
-  const calculateLineScore = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number): number => {
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
-    
-    let x = x0;
-    let y = y0;
-    let score = 0;
-    let pixelCount = 0;
-    
-    while (true) {
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = (y * width + x) * 4;
-        const gray = imageData[idx]; // R channel (grayscale)
-        score += gray;
-        pixelCount++;
-      }
-      
-      if (x === x1 && y === y1) break;
-      
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y += sy;
-      }
-    }
-    
-    return pixelCount > 0 ? score / pixelCount : 0;
-  }, []);
-
-  // Update image data to reduce score for drawn lines
-  const updateImageDataForLine = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number) => {
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
-    
-    let x = x0;
-    let y = y0;
-    
-    while (true) {
-      if (x >= 0 && x < width && y >= 0 && y < width) {
-        const idx = (y * width + x) * 4;
-        // Reduce the pixel value to make it less attractive for future lines
-        imageData[idx] = Math.max(0, imageData[idx] - 20);
-        imageData[idx + 1] = Math.max(0, imageData[idx + 1] - 20);
-        imageData[idx + 2] = Math.max(0, imageData[idx + 2] - 20);
-      }
-      
-      if (x === x1 && y === y1) break;
-      
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y += sy;
-      }
-    }
-  }, []);
 
 
   // Download functions
