@@ -1,4 +1,4 @@
-// string-art-improved.tsx
+// components/generator/StringArtGenerator.tsx
 'use client';
 
 import React, { useRef, useState, useCallback } from 'react';
@@ -9,13 +9,37 @@ import { Download, Upload, X, Zap, Settings, Image as ImageIcon, Info } from 'lu
 import { downloadInstructionsPDF } from '@/lib/generator/pdf';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-interface KitCode { id: string; code: string; kit_type: string; pegs: number; max_lines: number; used_count: number; max_generations: number; }
-interface StringArtGeneratorProps { kitCode: KitCode; onComplete: (generation: { pattern: string; settings: Record<string, unknown>; lines: { from: number; to: number }[]; }) => void; onImageUpload: (file: File | null) => void; image: File | null; disabled: boolean; }
+interface KitCode {
+  id: string;
+  code: string;
+  kit_type: string;
+  pegs: number;
+  max_lines: number;
+  used_count: number;
+  max_generations: number;
+}
+
+interface StringArtGeneratorProps {
+  kitCode: KitCode;
+  onComplete: (generation: {
+    pattern: string;
+    settings: Record<string, unknown>;
+    lines: { from: number; to: number }[];
+  }) => void;
+  onImageUpload: (file: File | null) => void;
+  image: File | null;
+  disabled: boolean;
+}
+
 interface Point { x: number; y: number; }
 interface Line { from: number; to: number; }
 
 export default function StringArtGenerator({
-  kitCode, onComplete, onImageUpload, image, disabled
+  kitCode,
+  onComplete,
+  onImageUpload,
+  image,
+  disabled
 }: StringArtGeneratorProps) {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -28,88 +52,95 @@ export default function StringArtGenerator({
   const [lines, setLines] = useState<Line[]>([]);
   const [pins, setPins] = useState<Point[]>([]);
 
-  // Tunable settings for portrait kits (can be exposed in UI)
-  const [settings, setSettings] = useState({
+  // Default settings derived from kit
+  const defaultQuality = kitCode.pegs >= 300 ? 'high' : kitCode.pegs >= 200 ? 'balanced' : 'fast';
+  const [qualityPreset, setQualityPreset] = useState<'fast'|'balanced'|'high'>(defaultQuality);
+
+  const presets = {
+    fast: { upscale: 1, beamWidth: 1, sampleStep: 1, lineWeight: 18 },
+    balanced: { upscale: 2, beamWidth: 2, sampleStep: 1, lineWeight: 14 },
+    high: { upscale: 3, beamWidth: 3, sampleStep: 1, lineWeight: 12 }
+  };
+
+  const dynamicSettings = {
     pins: kitCode.pegs,
     strings: kitCode.max_lines,
-    minLoop: Math.max(12, Math.floor(kitCode.pegs / 12)), // relax to allow detail
-    fade: 24, // alpha for stroke drawing preview
-    lineWeight: 14, // how much brightness each thread reduces (0-255)
-    upscale: 2, // super-resolution factor
-    beamWidth: 3, // keep top-K candidates
-    sampleLimit: 1  // candidate sampling step (1 = evaluate all)
-  });
+    minLoop: Math.max(10, Math.floor(kitCode.pegs / 12)),
+    fade: 22
+  };
 
-  // --------------------
-  // Utility: Bresenham (returns [x,y,x,y,...])
-  // --------------------
-  const bresenham = useCallback((x0:number,y0:number,x1:number,y1:number): number[] => {
-    const coords:number[] = [];
-    let dx = Math.abs(x1 - x0);
-    let dy = Math.abs(y1 - y0);
-    let sx = x0 < x1 ? 1 : -1;
-    let sy = y0 < y1 ? 1 : -1;
+  // ---------- Bresenham: returns [x,y,x,y,...] ----------
+  const bresenham = useCallback((x0: number, y0: number, x1: number, y1: number): number[] => {
+    const coords: number[] = [];
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
     let err = dx - dy;
-    let x = x0, y = y0;
+    let x = x0;
+    let y = y0;
     while (true) {
       coords.push(x, y);
       if (x === x1 && y === y1) break;
-      let e2 = 2 * err;
-      if (e2 > -dy) { err -= dy; x += sx; }
-      if (e2 < dx) { err += dx; y += sy; }
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
     }
     return coords;
   }, []);
 
-  // --------------------
-  // On-demand cache for line pixel indices to avoid recomputing
-  // --------------------
+  // ---------- Line pixel cache (maps a-b key to Int32Array of linear indices) ----------
   const lineCache = useRef<Map<string, Int32Array>>(new Map());
-  const getLineKey = (a:number,b:number) => a < b ? `${a}-${b}` : `${b}-${a}`;
-  const getLinePixels = useCallback((a:number,b:number,pinsArr: Float32Array, size:number) => {
-    const key = getLineKey(a,b);
+  const getLineKey = (a: number, b: number) => a < b ? `${a}-${b}` : `${b}-${a}`;
+
+  const getLinePixels = useCallback((a: number, b: number, pinsArr: Float32Array, size: number) => {
+    const key = getLineKey(a, b);
     const cache = lineCache.current;
     if (cache.has(key)) return cache.get(key)!;
-    const x0 = Math.round(pinsArr[a*2]);
-    const y0 = Math.round(pinsArr[a*2+1]);
-    const x1 = Math.round(pinsArr[b*2]);
-    const y1 = Math.round(pinsArr[b*2+1]);
+    const x0 = Math.round(pinsArr[a * 2]);
+    const y0 = Math.round(pinsArr[a * 2 + 1]);
+    const x1 = Math.round(pinsArr[b * 2]);
+    const y1 = Math.round(pinsArr[b * 2 + 1]);
     const coords = bresenham(x0, y0, x1, y1);
-    // Convert to linear indices for quick scoring: idx = y*size + x
-    const idxs = new Int32Array(coords.length/2);
-    for (let i=0, j=0; i<coords.length; i+=2, j++) {
-      const x = coords[i], y = coords[i+1];
+    const idxs = new Int32Array(coords.length / 2);
+    for (let i = 0, j = 0; i < coords.length; i += 2, j++) {
+      const x = coords[i];
+      const y = coords[i + 1];
       idxs[j] = y * size + x;
     }
     cache.set(key, idxs);
     return idxs;
   }, [bresenham]);
 
-  // --------------------
-  // Image preprocessing: draw image into a square canvas at internal SIZE,
-  // grayscale, normalize, create importance map (Sobel gradient + dark emphasis)
-  // --------------------
-  async function preprocess(file: File, targetSize:number) {
-    // load image
+  // ---------- Preprocess image -> grayscale + importance map ----------
+  const preprocess = useCallback(async (file: File, targetSize: number) => {
     const img = new Image();
     img.src = URL.createObjectURL(file);
-    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('load image failed')); });
+    await new Promise<void>((res, rej) => {
+      img.onload = () => res();
+      img.onerror = () => rej(new Error('Failed loading image'));
+    });
 
-    // draw onto canvas (letterbox, fill white background then clip circle)
     const canvas = document.createElement('canvas');
     canvas.width = targetSize;
     canvas.height = targetSize;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0,0,targetSize,targetSize);
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) throw new Error('Failed to create canvas context');
 
-    // clip to circle (preserve circular frame like your product)
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, targetSize, targetSize);
+
     ctx.save();
     ctx.beginPath();
-    ctx.arc(targetSize/2, targetSize/2, targetSize/2 - 10, 0, Math.PI*2);
+    ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2 - 10, 0, Math.PI * 2);
     ctx.clip();
 
-    // scale preserving aspect
     const scale = Math.max(targetSize / img.width, targetSize / img.height);
     const sw = img.width * scale;
     const sh = img.height * scale;
@@ -118,68 +149,56 @@ export default function StringArtGenerator({
     ctx.drawImage(img, sx, sy, sw, sh);
     ctx.restore();
 
-    // read image pixels
-    const imageData = ctx.getImageData(0,0,targetSize,targetSize);
+    const imageData = ctx.getImageData(0, 0, targetSize, targetSize);
     const pixels = imageData.data;
-    // convert to grayscale (luminosity) and build base arrays
     const gray = new Float32Array(targetSize * targetSize);
-    for (let i=0, j=0; i<pixels.length; i+=4, j++) {
-      const g = pixels[i]*0.2126 + pixels[i+1]*0.7152 + pixels[i+2]*0.0722;
-      gray[j] = g; // 0..255 (0 dark)
+    for (let i = 0, j = 0; i < pixels.length; i += 4, j++) {
+      const g = pixels[i] * 0.2126 + pixels[i + 1] * 0.7152 + pixels[i + 2] * 0.0722;
+      gray[j] = g;
     }
 
-    // apply contrast/gamma/histogram equalization-ish (small gamma tweak helps portraits)
-    // quick approximate gamma correction centered around midtones
-    for (let i=0; i<gray.length; i++) {
+    // Small S-curve contrast to help midtones (good for faces)
+    for (let i = 0; i < gray.length; i++) {
       let v = gray[i] / 255;
-      // small S-curve (emphasize midtones)
       v = v < 0.5 ? 2 * v * v : 1 - 2 * (1 - v) * (1 - v);
       gray[i] = Math.max(0, Math.min(255, v * 255));
     }
 
-    // compute Sobel gradients (simple 3x3) to get edge strength
-    const gx = new Float32Array(targetSize * targetSize);
-    const gy = new Float32Array(targetSize * targetSize);
+    // Sobel gradient magnitude
     const gmag = new Float32Array(targetSize * targetSize);
-    for (let y=1; y<targetSize-1; y++) {
-      for (let x=1; x<targetSize-1; x++) {
+    let maxG = 1;
+    for (let y = 1; y < targetSize - 1; y++) {
+      for (let x = 1; x < targetSize - 1; x++) {
         const i = y * targetSize + x;
-        // Sobel X
-        const v00 = gray[(y-1)*targetSize + (x-1)];
-        const v01 = gray[(y-1)*targetSize + (x)];
-        const v02 = gray[(y-1)*targetSize + (x+1)];
-        const v10 = gray[(y)*targetSize + (x-1)];
-        const v12 = gray[(y)*targetSize + (x+1)];
-        const v20 = gray[(y+1)*targetSize + (x-1)];
-        const v21 = gray[(y+1)*targetSize + (x)];
-        const v22 = gray[(y+1)*targetSize + (x+1)];
-        const sx = (v02 + 2*v12 + v22) - (v00 + 2*v10 + v20);
-        const sy = (v20 + 2*v21 + v22) - (v00 + 2*v01 + v02);
-        gx[i] = sx;
-        gy[i] = sy;
-        gmag[i] = Math.hypot(sx, sy);
+        const v00 = gray[(y - 1) * targetSize + (x - 1)];
+        const v01 = gray[(y - 1) * targetSize + x];
+        const v02 = gray[(y - 1) * targetSize + (x + 1)];
+        const v10 = gray[y * targetSize + (x - 1)];
+        const v12 = gray[y * targetSize + (x + 1)];
+        const v20 = gray[(y + 1) * targetSize + (x - 1)];
+        const v21 = gray[(y + 1) * targetSize + x];
+        const v22 = gray[(y + 1) * targetSize + (x + 1)];
+        const sx = (v02 + 2 * v12 + v22) - (v00 + 2 * v10 + v20);
+        const sy = (v20 + 2 * v21 + v22) - (v00 + 2 * v01 + v02);
+        const mag = Math.hypot(sx, sy);
+        gmag[i] = mag;
+        if (mag > maxG) maxG = mag;
       }
     }
-    // normalize gradient magnitude to 0..1
-    let maxG = 1;
-    for (let i=0;i<gmag.length;i++) if (gmag[i] > maxG) maxG = gmag[i];
-    for (let i=0;i<gmag.length;i++) gmag[i] = gmag[i] / maxG;
+    for (let i = 0; i < gmag.length; i++) gmag[i] = gmag[i] / maxG;
 
-    // Importance map combines edge strength and darkness (portrait features often dark)
-    // importance = edgeWeight * edge + darkWeight * (1 - gray_norm)
+    // Importance map: combine edge strength + darkness
     const importance = new Float32Array(targetSize * targetSize);
-    for (let i=0;i<gray.length;i++) {
-      const dark = 1 - (gray[i] / 255); // 0..1 darker -> higher
-      importance[i] = Math.min(1, 0.75 * gmag[i] + 0.5 * dark); // give edges more weight
+    for (let i = 0; i < gray.length; i++) {
+      const dark = 1 - (gray[i] / 255);
+      importance[i] = Math.min(1, 0.75 * gmag[i] + 0.5 * dark);
     }
 
     URL.revokeObjectURL(img.src);
     return { canvas, ctx, gray, importance };
-  }
+  }, []);
 
-  // --------------------
-  // Main improved algorithm: greedy + beam, with cached lines and incremental updates
-  // --------------------
+  // ---------- Main generator (client-side) ----------
   const generateStringArt = useCallback(async () => {
     if (!image) return;
     setIsGenerating(true);
@@ -189,212 +208,185 @@ export default function StringArtGenerator({
     lineCache.current.clear();
 
     try {
-      // Determine internal size using upscale setting and kit peg count
-      const base = 900; // base internal dimension for good detail on portraits
-      const SIZE = Math.max(900, base * settings.upscale); // adaptable
-      setCurrentStep('Loading and preprocessing...');
-      setProgress(7);
+      const preset = presets[qualityPreset];
+      // base internal size scales with preset and pin count for detail
+      const base = 900;
+      const pinsFactor = Math.min(2, Math.max(1, Math.floor(dynamicSettings.pins / 200)));
+      const SIZE = Math.max(base, Math.round(base * preset.upscale * pinsFactor));
+      setCurrentStep('Preprocessing image...');
+      setProgress(8);
 
-      // Preprocess (grayscale + importance)
       const pre = await preprocess(image, SIZE);
-      const targetSize = SIZE;
-      const targetGray = pre.gray; // 0..255 target brightness (0 dark)
-      const importance = pre.importance; // 0..1 importance weights
+      const targetGray = pre.gray; // 0..255 where 0 = black
+      const importance = pre.importance;
 
-      setCurrentStep('Generating pins...');
-      setProgress(12);
+      setCurrentStep('Placing pins...');
+      setProgress(15);
 
-      // Generate pins (circle)
-      const numPins = settings.pins;
+      const numPins = dynamicSettings.pins;
       const pinsArr = new Float32Array(numPins * 2);
-      const radius = targetSize / 2;
+      const radius = SIZE / 2;
       const center = radius;
       const inset = 10;
       for (let i = 0; i < numPins; i++) {
-        const a = (2 * Math.PI * i) / numPins;
-        pinsArr[i*2] = center + (radius - inset) * Math.cos(a);
-        pinsArr[i*2+1] = center + (radius - inset) * Math.sin(a);
+        const angle = (2 * Math.PI * i) / numPins;
+        pinsArr[i * 2] = center + (radius - inset) * Math.cos(angle);
+        pinsArr[i * 2 + 1] = center + (radius - inset) * Math.sin(angle);
       }
-      const pinsPoints: Point[] = [];
-      for (let i = 0; i < numPins; i++) pinsPoints.push({ x: pinsArr[i*2], y: pinsArr[i*2+1] });
-      setPins(pinsPoints);
+      const pinPoints: Point[] = [];
+      for (let i = 0; i < numPins; i++) pinPoints.push({ x: pinsArr[i * 2], y: pinsArr[i * 2 + 1] });
+      setPins(pinPoints);
 
       setCurrentStep('Preparing buffers...');
-      setProgress(18);
+      setProgress(20);
 
-      // Current canvas "brightness" buffer (255 = white background, 0 = black)
-      const current = new Float32Array(targetSize * targetSize);
-      for (let i = 0; i < current.length; i++) current[i] = 255; // start white
+      const current = new Float32Array(SIZE * SIZE);
+      for (let i = 0; i < current.length; i++) current[i] = 255;
 
-      // Precompute pixel-wise desired darkness = targetDark = 255 - targetGray (so higher => more thread)
-      const targetDark = new Float32Array(targetSize * targetSize);
-      for (let i=0;i<targetGray.length;i++) targetDark[i] = 255 - targetGray[i];
+      const targetDark = new Float32Array(SIZE * SIZE);
+      for (let i = 0; i < targetGray.length; i++) targetDark[i] = 255 - targetGray[i];
 
-      // Score function: approximate improvement from drawing line = sum( (current - Math.max(targetBrightness, current - lineWeight)) )
-      const lineWeight = settings.lineWeight; // brightness units removed per thread
-      const minLoop = settings.minLoop;
-      const beamWidth = Math.max(1, settings.beamWidth);
-      const maxStrings = settings.strings;
+      const lineWeight = preset.lineWeight;
+      const minLoop = dynamicSettings.minLoop;
+      const beamWidth = preset.beamWidth;
+      const sampleStep = preset.sampleStep;
+      const maxStrings = dynamicSettings.strings;
 
-      setCurrentStep('Generating string order...');
-      setProgress(22);
+      setCurrentStep('Generating strings...');
+      setProgress(24);
 
-      const generatedLines: Line[] = [];
+      const generated: Line[] = [];
       let currentPin = 0;
 
-      // Candidate sampling heuristic when many pins: evaluate every 'step' pin instead of all
-      const sampleStep = settings.sampleLimit > 1 ? settings.sampleLimit : (numPins > 320 ? Math.floor(numPins / 320) : 1);
-
       for (let s = 0; s < maxStrings; s++) {
-        // find top candidates (beam)
-        let bests: { pin:number; score:number }[] = [];
+        const candidates: { pin: number; score: number }[] = [];
 
-        // iterate test pins (we sample to save time on high pin counts)
         for (let testPin = 0; testPin < numPins; testPin += sampleStep) {
           if (testPin === currentPin) continue;
-          // enforce min loop (skip very close pins)
           const dist = Math.abs(testPin - currentPin);
           if (dist < minLoop && dist > 0 && (numPins - dist) > minLoop) continue;
 
-          // get pixel indices for line (cached)
-          const idxs = getLinePixels(currentPin, testPin, pinsArr, targetSize);
+          const idxs = getLinePixels(currentPin, testPin, pinsArr, SIZE);
 
-          // quick approximate score: sum of (currentDark - min(currentDark, targetDark + 0)) i.e.
-          // how much darkness remains to be filled along that line (higher = more useful)
-          // compute weighted by importance to favor edges/features
           let score = 0;
           for (let i = 0; i < idxs.length; i++) {
             const pi = idxs[i];
-            // current brightness -> currentDark = 255 - current[pi]; targetDark[pi] from above
             const currentDark = 255 - current[pi];
-            const remaining = Math.max(0, targetDark[pi] - currentDark); // how much dark still needed
+            const remaining = Math.max(0, targetDark[pi] - currentDark);
             if (remaining <= 0) continue;
-            // weight by importance (edges/facial features get more)
-            const w = importance[pi] + 0.1;
+            const w = importance[pi] + 0.12;
             score += remaining * w;
           }
 
-          // keep top beamWidth candidates (min-heap style)
-          if (bests.length < beamWidth) {
-            bests.push({ pin: testPin, score });
-            if (bests.length === beamWidth) bests.sort((a,b)=>a.score-b.score);
-          } else if (score > bests[0].score) {
-            bests[0] = { pin: testPin, score };
-            bests.sort((a,b)=>a.score-b.score);
+          if (candidates.length < beamWidth) {
+            candidates.push({ pin: testPin, score });
+            if (candidates.length === beamWidth) candidates.sort((a, b) => a.score - b.score);
+          } else if (score > candidates[0].score) {
+            candidates[0] = { pin: testPin, score };
+            candidates.sort((a, b) => a.score - b.score);
           }
         }
 
-        // pick the best among beam winners but we can also pick the one with the highest score
-        if (bests.length === 0) break;
-        // pick the maximum
-        let candidate = bests[bests.length-1];
-        if (!candidate || candidate.score < 1e-6) break; // no meaningful improvement left
+        if (candidates.length === 0) break;
+        const best = candidates[candidates.length - 1];
+        if (!best || best.score < 1e-6) break;
+        const bestPin = best.pin;
 
-        const bestPin = candidate.pin;
-
-        // apply line: reduce brightness along pixels by lineWeight (simulate putting dark thread)
-        const idxsToDraw = getLinePixels(currentPin, bestPin, pinsArr, targetSize);
+        const idxsToDraw = getLinePixels(currentPin, bestPin, pinsArr, SIZE);
         for (let i = 0; i < idxsToDraw.length; i++) {
           const pi = idxsToDraw[i];
-          // reduce brightness (down toward 0), but not below 0
           current[pi] = Math.max(0, current[pi] - lineWeight);
         }
 
-        generatedLines.push({ from: currentPin, to: bestPin });
+        generated.push({ from: currentPin, to: bestPin });
         currentPin = bestPin;
 
-        // streaming progress & preview update occasionally
-        if (s % 30 === 0 || s === maxStrings - 1) {
-          setLines([...generatedLines]);
-          const prog = 22 + Math.round((s / maxStrings) * 70);
+        if (s % 40 === 0 || s === maxStrings - 1) {
+          setLines([...generated]);
+          const prog = 24 + Math.round((s / maxStrings) * 72);
           setProgress(prog);
-          setCurrentStep(`Drawing string ${s+1} / ${maxStrings}`);
-          // draw preview to result canvas (fast draw uses imageData)
+          setCurrentStep(`Drawing string ${s + 1} of ${maxStrings}...`);
+
           if (resultCanvasRef.current) {
             const dctx = resultCanvasRef.current.getContext('2d');
             if (dctx) {
-              resultCanvasRef.current.width = targetSize;
-              resultCanvasRef.current.height = targetSize;
-              const outImg = dctx.createImageData(targetSize, targetSize);
-              // convert current brightness to RGBA (grayscale)
-              for (let i=0;i<current.length;i++) {
+              resultCanvasRef.current.width = SIZE;
+              resultCanvasRef.current.height = SIZE;
+              const out = dctx.createImageData(SIZE, SIZE);
+              for (let i = 0; i < current.length; i++) {
                 const b = Math.round(current[i]);
-                outImg.data[i*4] = b;
-                outImg.data[i*4+1] = b;
-                outImg.data[i*4+2] = b;
-                outImg.data[i*4+3] = 255;
+                out.data[i * 4] = b;
+                out.data[i * 4 + 1] = b;
+                out.data[i * 4 + 2] = b;
+                out.data[i * 4 + 3] = 255;
               }
-              dctx.putImageData(outImg, 0, 0);
+              dctx.putImageData(out, 0, 0);
 
-              // draw pins and current drawn threads overlay for visual polish
               dctx.save();
-              dctx.lineWidth = Math.max(0.6, settings.fade / 18);
-              dctx.strokeStyle = 'rgba(0,0,0,0.85)';
+              dctx.globalAlpha = Math.min(1, dynamicSettings.fade / 30);
+              dctx.lineWidth = Math.max(0.6, preset.lineWeight / 8);
+              dctx.strokeStyle = 'black';
               dctx.beginPath();
-              for (let L=0; L<generatedLines.length; L++) {
-                const ln = generatedLines[L];
-                const x0 = pinsArr[ln.from*2], y0 = pinsArr[ln.from*2+1];
-                const x1 = pinsArr[ln.to*2], y1 = pinsArr[ln.to*2+1];
-                dctx.moveTo(x0,y0);
-                dctx.lineTo(x1,y1);
+              for (let L = 0; L < generated.length; L++) {
+                const ln = generated[L];
+                const x0 = pinsArr[ln.from * 2], y0 = pinsArr[ln.from * 2 + 1];
+                const x1 = pinsArr[ln.to * 2], y1 = pinsArr[ln.to * 2 + 1];
+                dctx.moveTo(x0, y0);
+                dctx.lineTo(x1, y1);
               }
               dctx.stroke();
-              // pins
+              dctx.restore();
+
               dctx.fillStyle = '#000';
-              for (let i=0;i<pinsArr.length;i+=2) {
+              for (let i = 0; i < pinsArr.length; i += 2) {
                 dctx.beginPath();
-                dctx.arc(pinsArr[i], pinsArr[i+1], 2, 0, Math.PI*2);
+                dctx.arc(pinsArr[i], pinsArr[i + 1], 2, 0, Math.PI * 2);
                 dctx.fill();
               }
-              dctx.restore();
             }
           }
-          // yield so UI remains responsive
-          await new Promise(resolve => setTimeout(resolve, 0));
+
+          await new Promise((res) => setTimeout(res, 0));
         }
-      } // end for strings
+      }
 
-      setCurrentStep('Finalizing image...');
-      setProgress(95);
+      setCurrentStep('Finalizing...');
+      setProgress(96);
 
-      // produce final PNG preview from result canvas (ensure final draw)
       if (resultCanvasRef.current) {
-        // ensure the final current buffer is painted with strokes (we already drew periodically; draw final explicitly)
         const dctx = resultCanvasRef.current.getContext('2d')!;
-        resultCanvasRef.current.width = targetSize;
-        resultCanvasRef.current.height = targetSize;
-        const outImg = dctx.createImageData(targetSize, targetSize);
-        for (let i=0;i<current.length;i++) {
+        resultCanvasRef.current.width = SIZE;
+        resultCanvasRef.current.height = SIZE;
+        const out = dctx.createImageData(SIZE, SIZE);
+        for (let i = 0; i < current.length; i++) {
           const b = Math.round(current[i]);
-          outImg.data[i*4] = b;
-          outImg.data[i*4+1] = b;
-          outImg.data[i*4+2] = b;
-          outImg.data[i*4+3] = 255;
+          out.data[i * 4] = b;
+          out.data[i * 4 + 1] = b;
+          out.data[i * 4 + 2] = b;
+          out.data[i * 4 + 3] = 255;
         }
-        dctx.putImageData(outImg, 0, 0);
+        dctx.putImageData(out, 0, 0);
 
-        // redraw lines on top with slightly translucent black to emulate thread
         dctx.save();
-        dctx.globalAlpha = Math.min(1, settings.fade / 32);
-        dctx.lineWidth = Math.max(0.6, settings.lineWeight / 8);
+        dctx.globalAlpha = Math.min(1, dynamicSettings.fade / 32);
+        dctx.lineWidth = Math.max(0.6, preset.lineWeight / 8);
         dctx.lineCap = 'round';
         dctx.strokeStyle = 'black';
         dctx.beginPath();
-        for (let L=0; L<generatedLines.length; L++) {
-          const ln = generatedLines[L];
-          const x0 = pinsArr[ln.from*2], y0 = pinsArr[ln.from*2+1];
-          const x1 = pinsArr[ln.to*2], y1 = pinsArr[ln.to*2+1];
-          dctx.moveTo(x0,y0);
-          dctx.lineTo(x1,y1);
+        for (let L = 0; L < generated.length; L++) {
+          const ln = generated[L];
+          const x0 = pinsArr[ln.from * 2], y0 = pinsArr[ln.from * 2 + 1];
+          const x1 = pinsArr[ln.to * 2], y1 = pinsArr[ln.to * 2 + 1];
+          dctx.moveTo(x0, y0);
+          dctx.lineTo(x1, y1);
         }
         dctx.stroke();
         dctx.restore();
 
-        // draw pins
         dctx.fillStyle = '#000';
-        for (let i=0;i<pinsArr.length;i+=2) {
+        for (let i = 0; i < pinsArr.length; i += 2) {
           dctx.beginPath();
-          dctx.arc(pinsArr[i], pinsArr[i+1], 2, 0, Math.PI*2);
+          dctx.arc(pinsArr[i], pinsArr[i + 1], 2, 0, Math.PI * 2);
           dctx.fill();
         }
 
@@ -402,29 +394,25 @@ export default function StringArtGenerator({
         setResult(dataUrl);
         onComplete({
           pattern: dataUrl,
-          settings,
-          lines: generatedLines
+          settings: { ...dynamicSettings, preset: qualityPreset },
+          lines: generated
         });
       }
 
-      setLines(generatedLines);
+      setLines(generated);
       setProgress(100);
-      setCurrentStep('Complete!');
-      console.log('Generated', generatedLines.length, 'lines');
-
-    } catch (err) {
-      console.error('Generation error', err);
-      alert('Error: ' + (err as Error).message);
-      setCurrentStep('');
-    } finally {
+      setCurrentStep('Complete');
       setIsGenerating(false);
+    } catch (err) {
+      setIsGenerating(false);
+      setCurrentStep('');
+      // eslint-disable-next-line no-console
+      console.error('Generation error', err);
+      alert('Error: ' + (err instanceof Error ? err.message : String(err)));
     }
+  }, [image, qualityPreset, preprocess, getLinePixels, dynamicSettings, presets, onComplete]);
 
-  }, [image, settings, onComplete, getLinePixels]);
-
-  // --------------------
-  // UI handlers
-  // --------------------
+  // ---------- UI handlers ----------
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (file) {
@@ -455,18 +443,23 @@ export default function StringArtGenerator({
     downloadInstructionsPDF({
       lines,
       pegs: pins,
-      settings: { pegs: settings.pins, lines: settings.strings, lineWeight: settings.lineWeight, frameShape: 'circle' },
+      settings: {
+        pegs: dynamicSettings.pins,
+        lines: dynamicSettings.strings,
+        lineWeight: presets[qualityPreset].lineWeight,
+        frameShape: 'circle'
+      },
       imagePreview: result,
       kitType: kitCode.kit_type
     });
-  }, [result, lines, pins, settings, kitCode.kit_type]);
+  }, [result, lines, pins, dynamicSettings, presets, qualityPreset, kitCode.kit_type]);
 
   return (
     <div className="space-y-6">
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Pro tip:</strong> Best results from clear, centered portraits. Use the “High Detail” preset for faces and pets.
+          <strong>Pro tip:</strong> For portraits use the <span className="font-semibold">{qualityPreset.toUpperCase()}</span> preset. High detail requires more time but preserves facial features.
         </AlertDescription>
       </Alert>
 
@@ -480,7 +473,7 @@ export default function StringArtGenerator({
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => fileInputRef.current?.click()}>
                 <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                 <p className="font-medium text-gray-700 mb-2">Click to upload</p>
-                <p className="text-sm text-gray-500">Best: frontal portrait, high contrast (1000×1000+)</p>
+                <p className="text-sm text-gray-500">Best: centered portrait, high-contrast, 1000×1000+</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -496,7 +489,9 @@ export default function StringArtGenerator({
         </Card>
 
         <Card>
-          <CardHeader><CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5" /> Result</CardTitle></CardHeader>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5" /> Result</CardTitle>
+          </CardHeader>
           <CardContent>
             <canvas ref={resultCanvasRef} className="w-full rounded-xl border" style={{ display: result || isGenerating ? 'block' : 'none' }} />
             {!result && !isGenerating && (
@@ -512,7 +507,7 @@ export default function StringArtGenerator({
                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
                 <p className="text-lg font-medium mb-2">{currentStep}</p>
                 <div className="w-full max-w-md mt-4"><Progress value={progress} className="h-2" /><p className="text-sm text-gray-500 mt-2">{Math.round(progress)}%</p></div>
-                <p className="text-xs text-gray-500 mt-4">This may take up to a minute depending on quality settings</p>
+                <p className="text-xs text-gray-500 mt-4">Preview is generated client-side. High-detail can take longer depending on browser/device.</p>
               </div>
             )}
 
@@ -527,27 +522,51 @@ export default function StringArtGenerator({
       </div>
 
       <Card>
-        <CardHeader><CardTitle><Settings className="w-5 h-5 inline mr-2" />Settings</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle><Settings className="w-5 h-5 inline mr-2" />Settings</CardTitle>
+        </CardHeader>
         <CardContent className="grid md:grid-cols-4 gap-4">
-          <div><label className="text-sm font-medium block mb-2">Pins</label><div className="text-3xl font-bold text-blue-600">{settings.pins}</div></div>
-          <div><label className="text-sm font-medium block mb-2">Lines</label><div className="text-3xl font-bold text-blue-600">{settings.strings}</div></div>
-          <div><label className="text-sm font-medium block mb-2">Detail preset</label>
-            <select disabled={disabled || isGenerating} value={settings.upscale} onChange={(e)=>setSettings(s=>({...s, upscale: parseInt(e.target.value)}))} className="w-full">
-              <option value={1}>Fast (lower detail)</option>
-              <option value={2}>Balanced</option>
-              <option value={3}>High Detail</option>
+          <div>
+            <label className="text-sm font-medium block mb-2">Pins</label>
+            <div className="text-3xl font-bold text-blue-600">{dynamicSettings.pins}</div>
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-2">Lines</label>
+            <div className="text-3xl font-bold text-blue-600">{dynamicSettings.strings}</div>
+          </div>
+          <div>
+            <label className="text-sm font-medium block mb-2">Quality</label>
+            <select value={qualityPreset} onChange={(e) => setQualityPreset(e.target.value as any)} disabled={disabled || isGenerating} className="w-full">
+              <option value="fast">Fast (preview)</option>
+              <option value="balanced">Balanced</option>
+              <option value="high">High detail</option>
             </select>
-            <p className="text-xs text-gray-500 mt-1">Upscaling improves details; higher = slower</p>
+            <p className="text-xs text-gray-500 mt-1">Higher quality increases processing time but preserves facial detail.</p>
           </div>
           <div>
             <label className="text-sm font-medium block mb-2">Line darkness</label>
-            <input type="range" min="6" max="28" value={settings.lineWeight} onChange={(e)=>setSettings(s=>({...s, lineWeight: parseInt(e.target.value)}))} className="w-full" disabled={disabled || isGenerating}/>
-            <p className="text-xs text-gray-500 mt-1">Higher = faster fill, lower = more delicate lines</p>
+            <div className="text-sm text-gray-700">{presets[qualityPreset].lineWeight}</div>
+            <p className="text-xs text-gray-500 mt-1">Preset-driven; adjust via kit selection.</p>
           </div>
         </CardContent>
       </Card>
 
-      <canvas style={{ display: 'none' }} />
+      <Card className="bg-gradient-to-r from-blue-50 to-purple-50">
+        <CardContent className="pt-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm">Code: <span className="font-mono font-semibold text-blue-600">{kitCode.code}</span></p>
+              <p className="text-sm">Type: <span className="font-semibold capitalize">{kitCode.kit_type}</span></p>
+            </div>
+            <div className="text-right">
+              <p className="text-sm text-gray-600">Remaining</p>
+              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                {kitCode.max_generations - kitCode.used_count}
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
