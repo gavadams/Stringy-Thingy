@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 import { validateKitCode, getKitTypeSpecs } from '@/lib/generator/validation';
 import { uploadImageWithCompression } from '@/lib/generator/storage';
 import { createGeneration, incrementKitUsage, getUserKitCodes } from '@/lib/generator/queries';
-import StringArtConverter from '@/components/generator/StringArtConverter';
+import StringArtGenerator from '@/components/generator/StringArtGenerator';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -19,6 +19,8 @@ interface KitCode {
   id: string;
   code: string;
   kit_type: string;
+  pegs: number;
+  max_lines: number;
   max_generations: number;
   used_count: number;
 }
@@ -84,7 +86,7 @@ export default function GeneratePage() {
     setError(null);
   };
 
-  const handleGenerate = async (result: { lines: unknown[]; pegs: unknown[]; settings: unknown }) => {
+  const handleGenerate = async (result: { pattern: string; settings: Record<string, unknown>; lines: { from: number; to: number }[] }) => {
     if (!selectedKitCode || !imageFile || !user) return;
 
     setProcessing(true);
@@ -113,8 +115,12 @@ export default function GeneratePage() {
         user_id: user.id,
         kit_code_id: selectedKitCode.id,
         image_url: uploadedImageUrl,
-        settings: result.settings as Record<string, unknown>,
-        pattern_data: result
+        settings: result.settings,
+        pattern_data: {
+          pattern: result.pattern,
+          lines: result.lines,
+          settings: result.settings
+        }
       });
 
       if (!generation) {
@@ -223,12 +229,12 @@ export default function GeneratePage() {
         </Card>
 
         {/* Generator Component */}
-        {selectedKitCode && kitSpecs && (
-          <StringArtConverter
-            onGenerate={handleGenerate}
+        {selectedKitCode && (
+          <StringArtGenerator
+            kitCode={selectedKitCode}
+            onComplete={handleGenerate}
             onImageUpload={handleImageUpload}
-            kitCode={selectedKitCode.code}
-            remainingGenerations={remaining}
+            image={imageFile}
             isProcessing={processing}
             disabled={remaining <= 0}
           />

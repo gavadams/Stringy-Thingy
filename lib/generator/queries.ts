@@ -228,12 +228,14 @@ export async function incrementKitUsage(codeId: string): Promise<boolean> {
 }
 
 /**
- * Get user's active kit codes
+ * Get user's active kit codes with calculated pegs and max_lines
  */
 export async function getUserKitCodes(userId: string): Promise<{
   id: string;
   code: string;
   kit_type: string;
+  pegs: number;
+  max_lines: number;
   max_generations: number;
   used_count: number;
   created_at: string;
@@ -254,9 +256,35 @@ export async function getUserKitCodes(userId: string): Promise<{
       return [];
     }
 
-    return data || [];
+    // Add calculated fields based on kit_type
+    const kitCodesWithSpecs = (data || []).map(code => {
+      const specs = getKitTypeSpecs(code.kit_type);
+      return {
+        ...code,
+        pegs: specs.pegs,
+        max_lines: specs.maxLines
+      };
+    });
+
+    return kitCodesWithSpecs;
   } catch (error) {
     console.error('Error fetching user kit codes:', error);
     return [];
+  }
+}
+
+/**
+ * Get kit type specifications
+ */
+function getKitTypeSpecs(kitType: string): { pegs: number; maxLines: number } {
+  switch (kitType) {
+    case 'starter':
+      return { pegs: 150, maxLines: 2000 };
+    case 'standard':
+      return { pegs: 200, maxLines: 3000 };
+    case 'premium':
+      return { pegs: 250, maxLines: 4000 };
+    default:
+      return { pegs: 150, maxLines: 2000 };
   }
 }
