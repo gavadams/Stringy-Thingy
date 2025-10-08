@@ -189,13 +189,21 @@ export default function StringArtGenerator({
       sourceCanvasRef: !!sourceCanvasRef.current 
     });
     
-    if (!image || !resultCanvasRef.current || !sourceCanvasRef.current) {
+    if (!image || !sourceCanvasRef.current) {
       console.log('Missing requirements:', { 
         image: !!image, 
-        resultCanvasRef: !!resultCanvasRef.current, 
         sourceCanvasRef: !!sourceCanvasRef.current 
       });
       return;
+    }
+    
+    // If resultCanvasRef is not available, create a temporary canvas
+    let resultCanvas = resultCanvasRef.current;
+    if (!resultCanvas) {
+      console.log('Creating temporary canvas...');
+      resultCanvas = document.createElement('canvas');
+      resultCanvas.width = 600;
+      resultCanvas.height = 600;
     }
     
     console.log('Starting generation...');
@@ -290,8 +298,7 @@ export default function StringArtGenerator({
       setCurrentStep('Drawing string art...');
       setProgress(20);
       
-      // Setup result canvas
-      const resultCanvas = resultCanvasRef.current;
+      // Setup result canvas (already defined above)
       resultCanvas.width = SIZE;
       resultCanvas.height = SIZE;
       const ctx = resultCanvas.getContext('2d');
