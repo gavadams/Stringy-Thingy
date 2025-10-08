@@ -346,8 +346,8 @@ export default function StringArtGenerator({
             const pinsPoints: Point[] = [];
             for (let i = 0; i < pinsFlat.length; i += 2) pinsPoints.push({ x: pinsFlat[i], y: pinsFlat[i + 1] });
 
-            for (let L = 0; L < (data.lines as any[]).length; L++) {
-              const ln = (data.lines as any[])[L];
+            for (let L = 0; L < (data.lines as { from: number; to: number }[]).length; L++) {
+              const ln = (data.lines as { from: number; to: number }[])[L];
               const x0 = pinsPoints[ln.from].x, y0 = pinsPoints[ln.from].y;
               const x1 = pinsPoints[ln.to].x, y1 = pinsPoints[ln.to].y;
               ctx.beginPath();
@@ -499,7 +499,7 @@ export default function StringArtGenerator({
           <CardContent>
             <div className="flex gap-2 mb-3 items-center">
               <label className="text-sm">Frame</label>
-              <select value={frameShape} onChange={(e) => setFrameShape(e.target.value as any)} className="ml-2">
+              <select value={frameShape} onChange={(e) => setFrameShape(e.target.value as 'round'|'square')} className="ml-2">
                 <option value="round">Round</option>
                 <option value="square">Square</option>
               </select>
