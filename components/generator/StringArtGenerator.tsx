@@ -181,6 +181,14 @@ export default function StringArtGenerator({
       sourceCanvasRef: !!sourceCanvasRef.current 
     });
     
+    // Add a small delay to ensure canvas is rendered
+    await new Promise(resolve => setTimeout(resolve, 100));
+    
+    console.log('After delay:', { 
+      resultCanvasRef: !!resultCanvasRef.current, 
+      sourceCanvasRef: !!sourceCanvasRef.current 
+    });
+    
     if (!image || !resultCanvasRef.current || !sourceCanvasRef.current) {
       console.log('Missing requirements:', { 
         image: !!image, 
