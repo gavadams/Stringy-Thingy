@@ -69,6 +69,11 @@ export default function StringArtGenerator({
     minLoop: 20
   });
 
+  // Image manipulation state
+  const [imagePosition, setImagePosition] = useState({ x: 0, y: 0 });
+  const [imageScale, setImageScale] = useState(1);
+  const [imageRotation, setImageRotation] = useState(0);
+
 
   // Optimized line scoring using Uint8ClampedArray
   const scoreLine = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number): number => {
@@ -153,7 +158,7 @@ export default function StringArtGenerator({
     return pins;
   }, []);
 
-  // Convert image to grayscale and get image data
+  // Convert image to grayscale and get image data with transformations
   const processImageData = useCallback((image: HTMLImageElement): Uint8ClampedArray => {
     const canvas = offscreenCanvasRef.current;
     if (!canvas) throw new Error('Offscreen canvas not found');
@@ -164,8 +169,21 @@ export default function StringArtGenerator({
     canvas.width = 400;
     canvas.height = 400;
     
-    // Draw and scale image
-    ctx.drawImage(image, 0, 0, 400, 400);
+    // Clear canvas
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, 400, 400);
+    
+    // Apply transformations
+    ctx.save();
+    ctx.translate(200, 200); // Center of canvas
+    ctx.translate(imagePosition.x, imagePosition.y); // Apply position
+    ctx.rotate((imageRotation * Math.PI) / 180); // Apply rotation
+    ctx.scale(imageScale, imageScale); // Apply scale
+    
+    // Draw image centered
+    const imageSize = 200;
+    ctx.drawImage(image, -imageSize / 2, -imageSize / 2, imageSize, imageSize);
+    ctx.restore();
     
     // Convert to grayscale
     const imageData = ctx.getImageData(0, 0, 400, 400);
@@ -181,7 +199,7 @@ export default function StringArtGenerator({
     
     ctx.putImageData(imageData, 0, 0);
     return data;
-  }, []);
+  }, [imagePosition, imageScale, imageRotation]);
 
   // Main generation algorithm with progressive rendering
   const generateStringArt = useCallback(async () => {
@@ -214,35 +232,40 @@ export default function StringArtGenerator({
       const ctx = resultCanvas.getContext('2d');
       if (!ctx) throw new Error('Canvas context not found');
       
-      // Clear canvas
+      // Clear canvas with white background
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, 400, 400);
       ctx.strokeStyle = '#000000';
       ctx.lineWidth = settings.lineWidth;
+      ctx.globalAlpha = settings.lineOpacity;
       
       const generatedLines: Line[] = [];
       let currentPin = 0;
-      const maxLines = Math.min(settings.maxLines, settings.pegs * 10);
+      const maxLines = Math.min(settings.maxLines, settings.pegs * 15);
       setTotalLines(maxLines);
       
+      // Create a copy of image data for line scoring
+      const imageDataCopy = new Uint8ClampedArray(imageData);
+      
       // Progressive generation with batching
-      const batchSize = 10;
+      const batchSize = 5;
       let lineCount = 0;
       
       for (let i = 0; i < maxLines; i++) {
-        let bestScore = -1;
+        let bestScore = -Infinity;
         let bestPin = 0;
         
-        // Find best next pin
+        // Find best next pin using improved scoring
         for (let j = 0; j < settings.pegs; j++) {
           if (j === currentPin) continue;
           
-          const score = scoreLine(
+          // Calculate line score using Bresenham algorithm
+          const score = calculateLineScore(
             generatedPins[currentPin].x,
             generatedPins[currentPin].y,
             generatedPins[j].x,
             generatedPins[j].y,
-            imageData,
+            imageDataCopy,
             400
           );
           
@@ -252,11 +275,21 @@ export default function StringArtGenerator({
           }
         }
         
-        // Draw line
+        // Draw line with proper styling
         ctx.beginPath();
         ctx.moveTo(generatedPins[currentPin].x, generatedPins[currentPin].y);
         ctx.lineTo(generatedPins[bestPin].x, generatedPins[bestPin].y);
         ctx.stroke();
+        
+        // Update image data to reduce score for drawn lines
+        updateImageDataForLine(
+          generatedPins[currentPin].x,
+          generatedPins[currentPin].y,
+          generatedPins[bestPin].x,
+          generatedPins[bestPin].y,
+          imageDataCopy,
+          400
+        );
         
         generatedLines.push({ from: currentPin, to: bestPin });
         currentPin = bestPin;
@@ -269,7 +302,7 @@ export default function StringArtGenerator({
           setLines([...generatedLines]);
           
           // Allow UI to update
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise(resolve => setTimeout(resolve, 10));
         }
       }
       
@@ -295,7 +328,78 @@ export default function StringArtGenerator({
     } finally {
       setIsGenerating(false);
     }
-  }, [image, settings, processImageData, generatePins, scoreLine, onComplete]);
+  }, [image, settings, processImageData, generatePins, calculateLineScore, updateImageDataForLine, onComplete]);
+
+  // Improved line scoring algorithm
+  const calculateLineScore = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number): number => {
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    
+    let x = x0;
+    let y = y0;
+    let score = 0;
+    let pixelCount = 0;
+    
+    while (true) {
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = (y * width + x) * 4;
+        const gray = imageData[idx]; // R channel (grayscale)
+        score += gray;
+        pixelCount++;
+      }
+      
+      if (x === x1 && y === y1) break;
+      
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+    
+    return pixelCount > 0 ? score / pixelCount : 0;
+  }, []);
+
+  // Update image data to reduce score for drawn lines
+  const updateImageDataForLine = useCallback((x0: number, y0: number, x1: number, y1: number, imageData: Uint8ClampedArray, width: number) => {
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    
+    let x = x0;
+    let y = y0;
+    
+    while (true) {
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = (y * width + x) * 4;
+        // Reduce the pixel value to make it less attractive for future lines
+        imageData[idx] = Math.max(0, imageData[idx] - 20);
+        imageData[idx + 1] = Math.max(0, imageData[idx + 1] - 20);
+        imageData[idx + 2] = Math.max(0, imageData[idx + 2] - 20);
+      }
+      
+      if (x === x1 && y === y1) break;
+      
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }, []);
 
 
   // Download functions
@@ -511,6 +615,147 @@ export default function StringArtGenerator({
           </CardContent>
         </Card>
       </div>
+
+      {/* Image Manipulation */}
+      {image && (
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="w-5 h-5" />
+                Position & Size Image
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Frame Preview */}
+                <div className="relative w-full h-64 bg-gray-100 rounded-xl border-2 border-dashed border-gray-300 overflow-hidden">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div 
+                      className={`border-2 border-blue-500 bg-blue-50 bg-opacity-50 ${
+                        settings.shape === 'circle' ? 'rounded-full' : 'rounded-lg'
+                      }`}
+                      style={{
+                        width: `${Math.min(200, 200 * imageScale)}px`,
+                        height: `${Math.min(200, 200 * imageScale)}px`,
+                        transform: `translate(${imagePosition.x}px, ${imagePosition.y}px) rotate(${imageRotation}deg)`,
+                        transition: 'transform 0.1s ease'
+                      }}
+                    >
+                      <img
+                        src={imagePreview || ''}
+                        alt="Positioned image"
+                        className="w-full h-full object-cover rounded-inherit"
+                        style={{
+                          transform: `scale(${imageScale})`
+                        }}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Frame outline */}
+                  <div 
+                    className={`absolute border-2 border-gray-400 ${
+                      settings.shape === 'circle' ? 'rounded-full' : 'rounded-lg'
+                    }`}
+                    style={{
+                      width: '200px',
+                      height: '200px',
+                      top: '50%',
+                      left: '50%',
+                      transform: 'translate(-50%, -50%)'
+                    }}
+                  />
+                </div>
+
+                {/* Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Position Controls */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Position</h4>
+                    <div className="space-y-2">
+                      <div>
+                        <label className="text-xs text-gray-600">X Position</label>
+                        <input
+                          type="range"
+                          min="-100"
+                          max="100"
+                          value={imagePosition.x}
+                          onChange={(e) => setImagePosition(prev => ({ ...prev, x: parseInt(e.target.value) }))}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500">{imagePosition.x}px</div>
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-600">Y Position</label>
+                        <input
+                          type="range"
+                          min="-100"
+                          max="100"
+                          value={imagePosition.y}
+                          onChange={(e) => setImagePosition(prev => ({ ...prev, y: parseInt(e.target.value) }))}
+                          className="w-full"
+                        />
+                        <div className="text-xs text-gray-500">{imagePosition.y}px</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Scale Control */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Size</h4>
+                    <div>
+                      <label className="text-xs text-gray-600">Scale</label>
+                      <input
+                        type="range"
+                        min="0.5"
+                        max="2"
+                        step="0.1"
+                        value={imageScale}
+                        onChange={(e) => setImageScale(parseFloat(e.target.value))}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500">{Math.round(imageScale * 100)}%</div>
+                    </div>
+                  </div>
+
+                  {/* Rotation Control */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm">Rotation</h4>
+                    <div>
+                      <label className="text-xs text-gray-600">Angle</label>
+                      <input
+                        type="range"
+                        min="0"
+                        max="360"
+                        value={imageRotation}
+                        onChange={(e) => setImageRotation(parseInt(e.target.value))}
+                        className="w-full"
+                      />
+                      <div className="text-xs text-gray-500">{imageRotation}°</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Reset Button */}
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setImagePosition({ x: 0, y: 0 });
+                      setImageScale(1);
+                      setImageRotation(0);
+                    }}
+                  >
+                    Reset Position
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Canvas Preview */}
       <div className="lg:col-span-2">
