@@ -1,7 +1,7 @@
 // components/generator/StringArtGenerator.tsx
 'use client';
 
-import React, { useRef, useState, useCallback, useMemo } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -9,7 +9,7 @@ import { Download, Upload, X, Zap, Settings, Image as ImageIcon, Info } from 'lu
 import { downloadInstructionsPDF } from '@/lib/generator/pdf';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
-interface KitCode {
+type KitCode = {
   id: string;
   code: string;
   kit_type: string;
@@ -17,22 +17,18 @@ interface KitCode {
   max_lines: number;
   used_count: number;
   max_generations: number;
-}
+};
 
-interface StringArtGeneratorProps {
+type StringArtGeneratorProps = {
   kitCode: KitCode;
-  onComplete: (generation: {
-    pattern: string;
-    settings: Record<string, unknown>;
-    lines: { from: number; to: number }[];
-  }) => void;
+  onComplete: (generation: { pattern: string; settings: Record<string, unknown>; lines: { from: number; to: number }[]; }) => void;
   onImageUpload: (file: File | null) => void;
   image: File | null;
   disabled: boolean;
-}
+};
 
-interface Point { x: number; y: number; }
-interface Line { from: number; to: number; }
+type Point = { x: number; y: number; };
+type Line = { from: number; to: number; };
 
 export default function StringArtGenerator({
   kitCode,
@@ -43,6 +39,7 @@ export default function StringArtGenerator({
 }: StringArtGeneratorProps) {
   const resultCanvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const workerRef = useRef<Worker | null>(null);
 
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
@@ -51,367 +48,379 @@ export default function StringArtGenerator({
   const [currentStep, setCurrentStep] = useState('');
   const [lines, setLines] = useState<Line[]>([]);
   const [pins, setPins] = useState<Point[]>([]);
+  const [frameShape, setFrameShape] = useState<'round' | 'square'>('round');
 
-  // Default settings derived from kit
-  const defaultQuality = kitCode.pegs >= 300 ? 'high' : kitCode.pegs >= 200 ? 'balanced' : 'fast';
-  const [qualityPreset, setQualityPreset] = useState<'fast'|'balanced'|'high'>(defaultQuality);
+  // Kit presets (Starter/Standard/Pro)
+  const kitMap = {
+    starter: { pins: 150, upscale: 1, beamWidth: 2, lineWeight: 14, maxLines: 3000 },
+    standard: { pins: 256, upscale: 2, beamWidth: 4, lineWeight: 10, maxLines: 6000 },
+    pro: { pins: 384, upscale: 3, beamWidth: 6, lineWeight: 8, maxLines: 10000 }
+  };
 
-  const presets = useMemo(() => ({
-    fast: { upscale: 1, beamWidth: 1, sampleStep: 1, lineWeight: 18 },
-    balanced: { upscale: 2, beamWidth: 2, sampleStep: 1, lineWeight: 14 },
-    high: { upscale: 3, beamWidth: 3, sampleStep: 1, lineWeight: 12 }
-  }), []);
+  // Determine which kit preset to use based on kitCode.pegs (map your store selection)
+  const presetKey = kitCode.pegs >= 384 ? 'pro' : kitCode.pegs >= 256 ? 'standard' : 'starter';
+  const preset = kitMap[presetKey as keyof typeof kitMap];
 
-  const dynamicSettings = useMemo(() => ({
-    pins: kitCode.pegs,
-    strings: kitCode.max_lines,
-    minLoop: Math.max(10, Math.floor(kitCode.pegs / 12)),
-    fade: 22
-  }), [kitCode.pegs, kitCode.max_lines]);
+  // -------------------------------------------------------
+  // Worker code embedded as a string. The worker performs:
+  // - createImageBitmap from the input bytes
+  // - draw to OffscreenCanvas, grayscale, Sobel edge magnitude
+  // - build importance map (edge + darkness)
+  // - generate pins
+  // - greedy + beam search (cached Bresenham indices)
+  // - incremental updates to a "current" brightness buffer
+  // - post progress and final result (grayscale buffer, size, lines, pins)
+  // -------------------------------------------------------
+  const workerSrc = `
 
-  // ---------- Bresenham: returns [x,y,x,y,...] ----------
-  const bresenham = useCallback((x0: number, y0: number, x1: number, y1: number): number[] => {
-    const coords: number[] = [];
-    const dx = Math.abs(x1 - x0);
-    const dy = Math.abs(y1 - y0);
-    const sx = x0 < x1 ? 1 : -1;
-    const sy = y0 < y1 ? 1 : -1;
-    let err = dx - dy;
-    let x = x0;
-    let y = y0;
-    while (true) {
-      coords.push(x, y);
-      if (x === x1 && y === y1) break;
-      const e2 = 2 * err;
-      if (e2 > -dy) {
-        err -= dy;
-        x += sx;
-      }
-      if (e2 < dx) {
-        err += dx;
-        y += sy;
-      }
-    }
-    return coords;
-  }, []);
-
-  // ---------- Line pixel cache (maps a-b key to Int32Array of linear indices) ----------
-  const lineCache = useRef<Map<string, Int32Array>>(new Map());
-  const getLineKey = (a: number, b: number) => a < b ? `${a}-${b}` : `${b}-${a}`;
-
-  const getLinePixels = useCallback((a: number, b: number, pinsArr: Float32Array, size: number) => {
-    const key = getLineKey(a, b);
-    const cache = lineCache.current;
-    if (cache.has(key)) return cache.get(key)!;
-    const x0 = Math.round(pinsArr[a * 2]);
-    const y0 = Math.round(pinsArr[a * 2 + 1]);
-    const x1 = Math.round(pinsArr[b * 2]);
-    const y1 = Math.round(pinsArr[b * 2 + 1]);
-    const coords = bresenham(x0, y0, x1, y1);
-    const idxs = new Int32Array(coords.length / 2);
-    for (let i = 0, j = 0; i < coords.length; i += 2, j++) {
-      const x = coords[i];
-      const y = coords[i + 1];
-      idxs[j] = y * size + x;
-    }
-    cache.set(key, idxs);
-    return idxs;
-  }, [bresenham]);
-
-  // ---------- Preprocess image -> grayscale + importance map ----------
-  const preprocess = useCallback(async (file: File, targetSize: number) => {
-    const img = new Image();
-    img.src = URL.createObjectURL(file);
-    await new Promise<void>((res, rej) => {
-      img.onload = () => res();
-      img.onerror = () => rej(new Error('Failed loading image'));
-    });
-
-    const canvas = document.createElement('canvas');
-    canvas.width = targetSize;
-    canvas.height = targetSize;
-    const ctx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!ctx) throw new Error('Failed to create canvas context');
-
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, targetSize, targetSize);
-
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(targetSize / 2, targetSize / 2, targetSize / 2 - 10, 0, Math.PI * 2);
-    ctx.clip();
-
-    const scale = Math.max(targetSize / img.width, targetSize / img.height);
-    const sw = img.width * scale;
-    const sh = img.height * scale;
-    const sx = (targetSize - sw) / 2;
-    const sy = (targetSize - sh) / 2;
-    ctx.drawImage(img, sx, sy, sw, sh);
-    ctx.restore();
-
-    const imageData = ctx.getImageData(0, 0, targetSize, targetSize);
-    const pixels = imageData.data;
-    const gray = new Float32Array(targetSize * targetSize);
-    for (let i = 0, j = 0; i < pixels.length; i += 4, j++) {
-      const g = pixels[i] * 0.2126 + pixels[i + 1] * 0.7152 + pixels[i + 2] * 0.0722;
-      gray[j] = g;
-    }
-
-    // Small S-curve contrast to help midtones (good for faces)
-    for (let i = 0; i < gray.length; i++) {
-      let v = gray[i] / 255;
-      v = v < 0.5 ? 2 * v * v : 1 - 2 * (1 - v) * (1 - v);
-      gray[i] = Math.max(0, Math.min(255, v * 255));
-    }
-
-    // Sobel gradient magnitude
-    const gmag = new Float32Array(targetSize * targetSize);
-    let maxG = 1;
-    for (let y = 1; y < targetSize - 1; y++) {
-      for (let x = 1; x < targetSize - 1; x++) {
-        const i = y * targetSize + x;
-        const v00 = gray[(y - 1) * targetSize + (x - 1)];
-        const v01 = gray[(y - 1) * targetSize + x];
-        const v02 = gray[(y - 1) * targetSize + (x + 1)];
-        const v10 = gray[y * targetSize + (x - 1)];
-        const v12 = gray[y * targetSize + (x + 1)];
-        const v20 = gray[(y + 1) * targetSize + (x - 1)];
-        const v21 = gray[(y + 1) * targetSize + x];
-        const v22 = gray[(y + 1) * targetSize + (x + 1)];
-        const sx = (v02 + 2 * v12 + v22) - (v00 + 2 * v10 + v20);
-        const sy = (v20 + 2 * v21 + v22) - (v00 + 2 * v01 + v02);
-        const mag = Math.hypot(sx, sy);
-        gmag[i] = mag;
-        if (mag > maxG) maxG = mag;
-      }
-    }
-    for (let i = 0; i < gmag.length; i++) gmag[i] = gmag[i] / maxG;
-
-    // Importance map: combine edge strength + darkness
-    const importance = new Float32Array(targetSize * targetSize);
-    for (let i = 0; i < gray.length; i++) {
-      const dark = 1 - (gray[i] / 255);
-      importance[i] = Math.min(1, 0.75 * gmag[i] + 0.5 * dark);
-    }
-
-    URL.revokeObjectURL(img.src);
-    return { canvas, ctx, gray, importance };
-  }, []);
-
-  // ---------- Main generator (client-side) ----------
-  const generateStringArt = useCallback(async () => {
-    if (!image) return;
-    setIsGenerating(true);
-    setProgress(0);
-    setCurrentStep('Initializing...');
-    setLines([]);
-    lineCache.current.clear();
-
+  // Worker global scope
+  self.onmessage = async (ev) => {
     try {
-      const preset = presets[qualityPreset];
-      // base internal size scales with preset and pin count for detail
-      const base = 900;
-      const pinsFactor = Math.min(2, Math.max(1, Math.floor(dynamicSettings.pins / 200)));
-      const SIZE = Math.max(base, Math.round(base * preset.upscale * pinsFactor));
-      setCurrentStep('Preprocessing image...');
-      setProgress(8);
+      const { cmd } = ev.data;
+      if (cmd === 'generate') {
+        const { imageBuffer, imageType, size, pins, upscale, beamWidth, lineWeight, maxLines, frameShape } = ev.data;
+        // Recreate image
+        const blob = new Blob([imageBuffer], { type: imageType });
+        const imgBitmap = await createImageBitmap(blob);
+        const targetSize = size;
 
-      const pre = await preprocess(image, SIZE);
-      const targetGray = pre.gray; // 0..255 where 0 = black
-      const importance = pre.importance;
+        // OffscreenCanvas for preprocessing
+        const off = new OffscreenCanvas(targetSize, targetSize);
+        const ctx = off.getContext('2d');
+        if (!ctx) throw new Error('OffscreenCanvas failed');
 
-      setCurrentStep('Placing pins...');
-      setProgress(15);
+        // white background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0,0,targetSize,targetSize);
 
-      const numPins = dynamicSettings.pins;
-      const pinsArr = new Float32Array(numPins * 2);
-      const radius = SIZE / 2;
-      const center = radius;
-      const inset = 10;
-      for (let i = 0; i < numPins; i++) {
-        const angle = (2 * Math.PI * i) / numPins;
-        pinsArr[i * 2] = center + (radius - inset) * Math.cos(angle);
-        pinsArr[i * 2 + 1] = center + (radius - inset) * Math.sin(angle);
-      }
-      const pinPoints: Point[] = [];
-      for (let i = 0; i < numPins; i++) pinPoints.push({ x: pinsArr[i * 2], y: pinsArr[i * 2 + 1] });
-      setPins(pinPoints);
-
-      setCurrentStep('Preparing buffers...');
-      setProgress(20);
-
-      const current = new Float32Array(SIZE * SIZE);
-      for (let i = 0; i < current.length; i++) current[i] = 255;
-
-      const targetDark = new Float32Array(SIZE * SIZE);
-      for (let i = 0; i < targetGray.length; i++) targetDark[i] = 255 - targetGray[i];
-
-      const lineWeight = preset.lineWeight;
-      const minLoop = dynamicSettings.minLoop;
-      const beamWidth = preset.beamWidth;
-      const sampleStep = preset.sampleStep;
-      const maxStrings = dynamicSettings.strings;
-
-      setCurrentStep('Generating strings...');
-      setProgress(24);
-
-      const generated: Line[] = [];
-      let currentPin = 0;
-
-      for (let s = 0; s < maxStrings; s++) {
-        const candidates: { pin: number; score: number }[] = [];
-
-        for (let testPin = 0; testPin < numPins; testPin += sampleStep) {
-          if (testPin === currentPin) continue;
-          const dist = Math.abs(testPin - currentPin);
-          if (dist < minLoop && dist > 0 && (numPins - dist) > minLoop) continue;
-
-          const idxs = getLinePixels(currentPin, testPin, pinsArr, SIZE);
-
-          let score = 0;
-          for (let i = 0; i < idxs.length; i++) {
-            const pi = idxs[i];
-            const currentDark = 255 - current[pi];
-            const remaining = Math.max(0, targetDark[pi] - currentDark);
-            if (remaining <= 0) continue;
-            const w = importance[pi] + 0.12;
-            score += remaining * w;
-          }
-
-          if (candidates.length < beamWidth) {
-            candidates.push({ pin: testPin, score });
-            if (candidates.length === beamWidth) candidates.sort((a, b) => a.score - b.score);
-          } else if (score > candidates[0].score) {
-            candidates[0] = { pin: testPin, score };
-            candidates.sort((a, b) => a.score - b.score);
-          }
+        // optional circular clip
+        if (frameShape === 'round') {
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(targetSize/2, targetSize/2, targetSize/2 - 10, 0, Math.PI*2);
+          ctx.clip();
         }
 
-        if (candidates.length === 0) break;
-        const best = candidates[candidates.length - 1];
-        if (!best || best.score < 1e-6) break;
-        const bestPin = best.pin;
+        // Draw image with cover scaling (center-crop)
+        const scale = Math.max(targetSize / imgBitmap.width, targetSize / imgBitmap.height);
+        const sw = imgBitmap.width * scale;
+        const sh = imgBitmap.height * scale;
+        const sx = (targetSize - sw) / 2;
+        const sy = (targetSize - sh) / 2;
+        ctx.drawImage(imgBitmap, sx, sy, sw, sh);
 
-        const idxsToDraw = getLinePixels(currentPin, bestPin, pinsArr, SIZE);
-        for (let i = 0; i < idxsToDraw.length; i++) {
-          const pi = idxsToDraw[i];
-          current[pi] = Math.max(0, current[pi] - lineWeight);
+        if (frameShape === 'round') ctx.restore();
+
+        // Get pixel data
+        const imageData = ctx.getImageData(0,0,targetSize,targetSize);
+        const pixels = imageData.data;
+        const N = targetSize * targetSize;
+
+        // Convert to grayscale float array (0..255)
+        const gray = new Float32Array(N);
+        for (let i=0, j=0; i<pixels.length; i+=4, j++) {
+          const g = pixels[i]*0.2126 + pixels[i+1]*0.7152 + pixels[i+2]*0.0722;
+          gray[j] = g;
         }
 
-        generated.push({ from: currentPin, to: bestPin });
-        currentPin = bestPin;
+        // Simple S-curve contrast (emphasize midtones)
+        for (let i=0;i<gray.length;i++){
+          let v = gray[i]/255;
+          v = v < 0.5 ? 2*v*v : 1 - 2*(1-v)*(1-v);
+          gray[i] = Math.max(0, Math.min(255, v*255));
+        }
 
-        if (s % 40 === 0 || s === maxStrings - 1) {
-          setLines([...generated]);
-          const prog = 24 + Math.round((s / maxStrings) * 72);
-          setProgress(prog);
-          setCurrentStep(`Drawing string ${s + 1} of ${maxStrings}...`);
+        // Sobel gradient magnitude (3x3)
+        const gmag = new Float32Array(N);
+        let maxG = 1;
+        for (let y=1; y<targetSize-1; y++){
+          for (let x=1; x<targetSize-1; x++){
+            const i = y*targetSize + x;
+            const v00 = gray[(y-1)*targetSize + (x-1)];
+            const v01 = gray[(y-1)*targetSize + (x)];
+            const v02 = gray[(y-1)*targetSize + (x+1)];
+            const v10 = gray[y*targetSize + (x-1)];
+            const v12 = gray[y*targetSize + (x+1)];
+            const v20 = gray[(y+1)*targetSize + (x-1)];
+            const v21 = gray[(y+1)*targetSize + (x)];
+            const v22 = gray[(y+1)*targetSize + (x+1)];
+            const sx = (v02 + 2*v12 + v22) - (v00 + 2*v10 + v20);
+            const sy = (v20 + 2*v21 + v22) - (v00 + 2*v01 + v02);
+            const mag = Math.hypot(sx, sy);
+            gmag[i] = mag;
+            if (mag > maxG) maxG = mag;
+          }
+        }
+        for (let i=0;i<gmag.length;i++) gmag[i] = gmag[i] / maxG;
 
-          if (resultCanvasRef.current) {
-            const dctx = resultCanvasRef.current.getContext('2d');
-            if (dctx) {
-              resultCanvasRef.current.width = SIZE;
-              resultCanvasRef.current.height = SIZE;
-              const out = dctx.createImageData(SIZE, SIZE);
-              for (let i = 0; i < current.length; i++) {
-                const b = Math.round(current[i]);
-                out.data[i * 4] = b;
-                out.data[i * 4 + 1] = b;
-                out.data[i * 4 + 2] = b;
-                out.data[i * 4 + 3] = 255;
-              }
-              dctx.putImageData(out, 0, 0);
+        // Importance map: edges + dark regions
+        const importance = new Float32Array(N);
+        for (let i=0;i<N;i++){
+          const dark = 1 - (gray[i] / 255);
+          importance[i] = Math.min(1, 0.75 * gmag[i] + 0.5 * dark);
+        }
 
-              dctx.save();
-              dctx.globalAlpha = Math.min(1, dynamicSettings.fade / 30);
-              dctx.lineWidth = Math.max(0.6, preset.lineWeight / 8);
-              dctx.strokeStyle = 'black';
-              dctx.beginPath();
-              for (let L = 0; L < generated.length; L++) {
-                const ln = generated[L];
-                const x0 = pinsArr[ln.from * 2], y0 = pinsArr[ln.from * 2 + 1];
-                const x1 = pinsArr[ln.to * 2], y1 = pinsArr[ln.to * 2 + 1];
-                dctx.moveTo(x0, y0);
-                dctx.lineTo(x1, y1);
-              }
-              dctx.stroke();
-              dctx.restore();
+        // Pins positions in a circle
+        const pinsArr = new Float32Array(pins*2);
+        const radius = targetSize/2;
+        const center = radius;
+        const inset = 10;
+        for (let i=0;i<pins;i++){
+          const a = (2*Math.PI*i)/pins;
+          pinsArr[i*2] = center + (radius - inset) * Math.cos(a);
+          pinsArr[i*2+1] = center + (radius - inset) * Math.sin(a);
+        }
 
-              dctx.fillStyle = '#000';
-              for (let i = 0; i < pinsArr.length; i += 2) {
-                dctx.beginPath();
-                dctx.arc(pinsArr[i], pinsArr[i + 1], 2, 0, Math.PI * 2);
-                dctx.fill();
-              }
+        // Bresenham helper (returns Int32Array of linear indices)
+        const bresenhamIdxs = new Map();
+        function getLineKey(a,b){ return a<b ? a+'-'+b : b+'-'+a; }
+        function getLinePixels(a,b){
+          const key = getLineKey(a,b);
+          if (bresenhamIdxs.has(key)) return bresenhamIdxs.get(key);
+          const x0 = Math.round(pinsArr[a*2]);
+          const y0 = Math.round(pinsArr[a*2+1]);
+          const x1 = Math.round(pinsArr[b*2]);
+          const y1 = Math.round(pinsArr[b*2+1]);
+          const coords = [];
+          let dx = Math.abs(x1-x0);
+          let dy = Math.abs(y1-y0);
+          const sx = x0 < x1 ? 1 : -1;
+          const sy = y0 < y1 ? 1 : -1;
+          let err = dx - dy;
+          let x = x0, y = y0;
+          while (true){
+            coords.push(x,y);
+            if (x === x1 && y === y1) break;
+            const e2 = 2*err;
+            if (e2 > -dy){ err -= dy; x += sx; }
+            if (e2 < dx){ err += dx; y += sy; }
+          }
+          const idxs = new Int32Array(coords.length/2);
+          for (let i=0,j=0;i<coords.length;i+=2,j++){
+            const xx = coords[i], yy = coords[i+1];
+            idxs[j] = yy * targetSize + xx;
+          }
+          bresenhamIdxs.set(key, idxs);
+          return idxs;
+        }
+
+        // Current brightness buffer: 255=white -> 0=black
+        const current = new Float32Array(N);
+        for (let i=0;i<N;i++) current[i] = 255;
+
+        const targetDark = new Float32Array(N);
+        for (let i=0;i<N;i++) targetDark[i] = 255 - gray[i];
+
+        // Greedy + beam loop
+        const generated = [];
+        let currentPin = 0;
+        const minLoop = Math.max(6, Math.floor(pins / 12));
+
+        // provide progress
+        postMessage({ type: 'progress', progress: 5, step: 'starting generation' });
+
+        for (let s=0; s<maxLines; s++){
+          const candidates = [];
+          // sample every candidate pin (we could sample step if pins large)
+          for (let testPin=0; testPin<pins; testPin++){
+            if (testPin === currentPin) continue;
+            const dist = Math.abs(testPin - currentPin);
+            if (dist < minLoop && dist > 0 && (pins - dist) > minLoop) continue;
+            const idxs = getLinePixels(currentPin, testPin);
+
+            let score = 0;
+            for (let i=0;i<idxs.length;i++){
+              const pi = idxs[i];
+              const currentDark = 255 - current[pi];
+              const remaining = Math.max(0, targetDark[pi] - currentDark);
+              if (remaining <= 0) continue;
+              const w = importance[pi] + 0.12;
+              score += remaining * w;
+            }
+
+            if (candidates.length < beamWidth){
+              candidates.push({ pin: testPin, score });
+              if (candidates.length === beamWidth) candidates.sort((a,b)=>a.score-b.score);
+            } else if (score > candidates[0].score){
+              candidates[0] = { pin: testPin, score };
+              candidates.sort((a,b)=>a.score-b.score);
             }
           }
 
-          await new Promise((res) => setTimeout(res, 0));
-        }
+          if (candidates.length === 0) break;
+          const best = candidates[candidates.length - 1];
+          if (!best || best.score < 1e-6) break;
+          const bestPin = best.pin;
+
+          const idxsToDraw = getLinePixels(currentPin, bestPin);
+          for (let i=0;i<idxsToDraw.length;i++){
+            const pi = idxsToDraw[i];
+            current[pi] = Math.max(0, current[pi] - lineWeight);
+          }
+
+          generated.push({ from: currentPin, to: bestPin });
+          currentPin = bestPin;
+
+          // periodic progress updates and yields
+          if (s % 40 === 0 || s === maxLines - 1){
+            const prog = 5 + Math.round((s / maxLines) * 90);
+            postMessage({ type: 'progress', progress: prog, step: 'running', lines: generated.length });
+            // allow event loop to process
+            await new Promise(res => setTimeout(res, 0));
+          }
+        } // end loop
+
+        // send final result: transfer current buffer (ArrayBuffer), size, lines array, and pins array
+        postMessage({
+          type: 'done',
+          buffer: current.buffer,
+          size: targetSize,
+          lines: generated,
+          pins: Array.from(pinsArr)
+        }, [current.buffer]); // transfer ownership of buffer
+
+      } // endif generate
+    } catch (err) {
+      postMessage({ type: 'error', message: (err && err.message) ? err.message : String(err) });
+    }
+  };
+  `;
+
+  // Create worker from the blob source (only once)
+  const createWorker = useCallback(() => {
+    if (workerRef.current) return workerRef.current;
+    const blob = new Blob([workerSrc], { type: 'application/javascript' });
+    const url = URL.createObjectURL(blob);
+    const w = new Worker(url, { type: 'module' });
+    workerRef.current = w;
+    return w;
+  }, [workerSrc]);
+
+  // cleanup worker on unmount
+  useEffect(() => {
+    return () => {
+      if (workerRef.current) {
+        workerRef.current.terminate();
+        workerRef.current = null;
       }
+    };
+  }, []);
 
-      setCurrentStep('Finalizing...');
-      setProgress(96);
+  // handle worker messages
+  useEffect(() => {
+    const w = workerRef.current;
+    if (!w) return;
+    const handler = (ev: MessageEvent) => {
+      const data = ev.data;
+      if (data.type === 'progress') {
+        setProgress(data.progress ?? 0);
+        setCurrentStep(data.step ?? '');
+        if (data.lines) setLines((prev) => prev.length < data.lines ? prev : prev);
+      } else if (data.type === 'done') {
+        // The worker transferred the ArrayBuffer as buffer; wrap as Uint8Array
+        const buffer = data.buffer as ArrayBuffer;
+        const size = data.size as number;
+        const arr = new Uint8ClampedArray(buffer);
+        // draw to canvas
+        if (resultCanvasRef.current) {
+          const ctx = resultCanvasRef.current.getContext('2d');
+          if (ctx) {
+            resultCanvasRef.current.width = size;
+            resultCanvasRef.current.height = size;
+            const imageData = ctx.createImageData(size, size);
+            for (let i = 0; i < size * size; i++) {
+              const v = arr[i]; // brightness 0..255
+              imageData.data[i * 4] = v;
+              imageData.data[i * 4 + 1] = v;
+              imageData.data[i * 4 + 2] = v;
+              imageData.data[i * 4 + 3] = 255;
+            }
+            ctx.putImageData(imageData, 0, 0);
+            // draw lines overlay (threads)
+            ctx.save();
+            ctx.globalAlpha = 0.95;
+            ctx.strokeStyle = 'black';
+            ctx.lineCap = 'round';
+            ctx.lineWidth = 0.6;
+            const pinsFlat = data.pins as number[];
+            const pinsPoints: Point[] = [];
+            for (let i = 0; i < pinsFlat.length; i += 2) pinsPoints.push({ x: pinsFlat[i], y: pinsFlat[i + 1] });
 
-      if (resultCanvasRef.current) {
-        const dctx = resultCanvasRef.current.getContext('2d')!;
-        resultCanvasRef.current.width = SIZE;
-        resultCanvasRef.current.height = SIZE;
-        const out = dctx.createImageData(SIZE, SIZE);
-        for (let i = 0; i < current.length; i++) {
-          const b = Math.round(current[i]);
-          out.data[i * 4] = b;
-          out.data[i * 4 + 1] = b;
-          out.data[i * 4 + 2] = b;
-          out.data[i * 4 + 3] = 255;
+            for (let L = 0; L < (data.lines as any[]).length; L++) {
+              const ln = (data.lines as any[])[L];
+              const x0 = pinsPoints[ln.from].x, y0 = pinsPoints[ln.from].y;
+              const x1 = pinsPoints[ln.to].x, y1 = pinsPoints[ln.to].y;
+              ctx.beginPath();
+              ctx.moveTo(x0, y0);
+              ctx.lineTo(x1, y1);
+              ctx.stroke();
+            }
+            ctx.restore();
+            // set result data URL
+            const url = resultCanvasRef.current.toDataURL('image/png', 0.95);
+            setResult(url);
+            setProgress(100);
+            setCurrentStep('Complete');
+            setLines(data.lines as Line[]);
+            const pinsPointArray = pinsPoints;
+            setPins(pinsPointArray);
+            setIsGenerating(false);
+            // callback
+            onComplete({ pattern: url, settings: { presetKey }, lines: data.lines as Line[] });
+          }
         }
-        dctx.putImageData(out, 0, 0);
-
-        dctx.save();
-        dctx.globalAlpha = Math.min(1, dynamicSettings.fade / 32);
-        dctx.lineWidth = Math.max(0.6, preset.lineWeight / 8);
-        dctx.lineCap = 'round';
-        dctx.strokeStyle = 'black';
-        dctx.beginPath();
-        for (let L = 0; L < generated.length; L++) {
-          const ln = generated[L];
-          const x0 = pinsArr[ln.from * 2], y0 = pinsArr[ln.from * 2 + 1];
-          const x1 = pinsArr[ln.to * 2], y1 = pinsArr[ln.to * 2 + 1];
-          dctx.moveTo(x0, y0);
-          dctx.lineTo(x1, y1);
-        }
-        dctx.stroke();
-        dctx.restore();
-
-        dctx.fillStyle = '#000';
-        for (let i = 0; i < pinsArr.length; i += 2) {
-          dctx.beginPath();
-          dctx.arc(pinsArr[i], pinsArr[i + 1], 2, 0, Math.PI * 2);
-          dctx.fill();
-        }
-
-        const dataUrl = resultCanvasRef.current.toDataURL('image/png', 0.95);
-        setResult(dataUrl);
-        onComplete({
-          pattern: dataUrl,
-          settings: { ...dynamicSettings, preset: qualityPreset },
-          lines: generated
-        });
+      } else if (data.type === 'error') {
+        setIsGenerating(false);
+        setCurrentStep('');
+        alert('Worker error: ' + data.message);
       }
+    };
+    w.addEventListener('message', handler);
+    return () => w.removeEventListener('message', handler);
+  }, [onComplete, presetKey]);
 
-      setLines(generated);
-      setProgress(100);
-      setCurrentStep('Complete');
-      setIsGenerating(false);
+  // generate: read image as ArrayBuffer and post to worker
+  const generateStringArt = useCallback(async () => {
+    if (!image) return;
+    setIsGenerating(true);
+    setProgress(1);
+    setCurrentStep('Preparing image for worker...');
+    setLines([]);
+    setResult(null);
+
+    try {
+      const w = createWorker();
+
+      // read file into ArrayBuffer
+      const buf = await image.arrayBuffer();
+      const sizeBase = 900; // base dimensional control
+      // scale size by preset.upscale and by pin count factor
+      const pinsFactor = Math.min(2, Math.max(1, Math.floor(preset.pins / 200)));
+      const size = Math.max(sizeBase, Math.round(sizeBase * preset.upscale * pinsFactor));
+
+      // post message to worker
+      w.postMessage({
+        cmd: 'generate',
+        imageBuffer: buf,
+        imageType: image.type || 'image/png',
+        size,
+        pins: preset.pins,
+        upscale: preset.upscale,
+        beamWidth: preset.beamWidth,
+        lineWeight: preset.lineWeight,
+        maxLines: preset.maxLines,
+        frameShape
+      }, [buf]); // transfer buffer
+
+      setCurrentStep('Worker started');
     } catch (err) {
       setIsGenerating(false);
       setCurrentStep('');
-      console.error('Generation error', err);
-      alert('Error: ' + (err instanceof Error ? err.message : String(err)));
+      alert('Generation start failed: ' + ((err && (err as Error).message) ? (err as Error).message : String(err)));
     }
-  }, [image, qualityPreset, preprocess, getLinePixels, dynamicSettings, presets, onComplete]);
+  }, [image, createWorker, preset, frameShape]);
 
-  // ---------- UI handlers ----------
+  // UI handlers
   const handleImageUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (file) {
@@ -438,35 +447,33 @@ export default function StringArtGenerator({
   }, [result, kitCode.code]);
 
   const downloadInstructions = useCallback(() => {
-    if (!result || !lines.length) return;
+    if (!result || !lines.length || !pins.length) return;
     downloadInstructionsPDF({
       lines,
       pegs: pins,
       settings: {
-        pegs: dynamicSettings.pins,
-        lines: dynamicSettings.strings,
-        lineWeight: presets[qualityPreset].lineWeight,
-        frameShape: 'circle'
+        pegs: preset.pins,
+        lines: preset.maxLines,
+        lineWeight: preset.lineWeight,
+        frameShape
       },
       imagePreview: result,
       kitType: kitCode.kit_type
     });
-  }, [result, lines, pins, dynamicSettings, presets, qualityPreset, kitCode.kit_type]);
+  }, [result, lines, pins, preset, kitCode.kit_type, frameShape]);
 
   return (
     <div className="space-y-6">
       <Alert>
         <Info className="h-4 w-4" />
         <AlertDescription>
-          <strong>Pro tip:</strong> For portraits use the <span className="font-semibold">{qualityPreset.toUpperCase()}</span> preset. High detail requires more time but preserves facial features.
+          <strong>Pro tip:</strong> For portraits use <span className="font-semibold">{presetKey.toUpperCase()}</span>. White background, black thread output only.
         </AlertDescription>
       </Alert>
 
       <div className="grid md:grid-cols-2 gap-6">
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Upload className="w-5 h-5" /> Upload Image</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Upload className="w-5 h-5" /> Upload Image</CardTitle></CardHeader>
           <CardContent>
             {!image ? (
               <div className="border-2 border-dashed border-gray-300 rounded-xl p-12 text-center cursor-pointer hover:bg-gray-50 transition-colors" onClick={() => fileInputRef.current?.click()}>
@@ -488,11 +495,23 @@ export default function StringArtGenerator({
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5" /> Result</CardTitle>
-          </CardHeader>
+          <CardHeader><CardTitle className="flex items-center gap-2"><Zap className="w-5 h-5" /> Result</CardTitle></CardHeader>
           <CardContent>
+            <div className="flex gap-2 mb-3 items-center">
+              <label className="text-sm">Frame</label>
+              <select value={frameShape} onChange={(e) => setFrameShape(e.target.value as any)} className="ml-2">
+                <option value="round">Round</option>
+                <option value="square">Square</option>
+              </select>
+
+              <div className="ml-auto">
+                <span className="text-sm mr-2">Kit:</span>
+                <span className="font-semibold">{presetKey.toUpperCase()} ({preset.pins} pins)</span>
+              </div>
+            </div>
+
             <canvas ref={resultCanvasRef} className="w-full rounded-xl border" style={{ display: result || isGenerating ? 'block' : 'none' }} />
+
             {!result && !isGenerating && (
               <div className="border-2 border-gray-200 rounded-xl p-12 text-center bg-gray-50 min-h-[400px] flex flex-col items-center justify-center">
                 <Zap className="w-16 h-16 text-gray-300 mb-4" />
@@ -506,7 +525,7 @@ export default function StringArtGenerator({
                 <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mb-4"></div>
                 <p className="text-lg font-medium mb-2">{currentStep}</p>
                 <div className="w-full max-w-md mt-4"><Progress value={progress} className="h-2" /><p className="text-sm text-gray-500 mt-2">{Math.round(progress)}%</p></div>
-                <p className="text-xs text-gray-500 mt-4">Preview is generated client-side. High-detail can take longer depending on browser/device.</p>
+                <p className="text-xs text-gray-500 mt-4">This runs in a worker — the UI will stay responsive.</p>
               </div>
             )}
 
@@ -521,48 +540,24 @@ export default function StringArtGenerator({
       </div>
 
       <Card>
-        <CardHeader>
-          <CardTitle><Settings className="w-5 h-5 inline mr-2" />Settings</CardTitle>
-        </CardHeader>
+        <CardHeader><CardTitle><Settings className="w-5 h-5 inline mr-2" />Settings</CardTitle></CardHeader>
         <CardContent className="grid md:grid-cols-4 gap-4">
           <div>
             <label className="text-sm font-medium block mb-2">Pins</label>
-            <div className="text-3xl font-bold text-blue-600">{dynamicSettings.pins}</div>
+            <div className="text-3xl font-bold text-blue-600">{preset.pins}</div>
           </div>
           <div>
-            <label className="text-sm font-medium block mb-2">Lines</label>
-            <div className="text-3xl font-bold text-blue-600">{dynamicSettings.strings}</div>
+            <label className="text-sm font-medium block mb-2">Max lines</label>
+            <div className="text-3xl font-bold text-blue-600">{preset.maxLines}</div>
           </div>
           <div>
             <label className="text-sm font-medium block mb-2">Quality</label>
-            <select value={qualityPreset} onChange={(e) => setQualityPreset(e.target.value as 'fast'|'balanced'|'high')} disabled={disabled || isGenerating} className="w-full">
-              <option value="fast">Fast (preview)</option>
-              <option value="balanced">Balanced</option>
-              <option value="high">High detail</option>
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Higher quality increases processing time but preserves facial detail.</p>
+            <div className="text-sm text-gray-700">Preset: {presetKey.toUpperCase()}</div>
+            <p className="text-xs text-gray-500 mt-1">Preset maps to kit purchased.</p>
           </div>
           <div>
-            <label className="text-sm font-medium block mb-2">Line darkness</label>
-            <div className="text-sm text-gray-700">{presets[qualityPreset].lineWeight}</div>
-            <p className="text-xs text-gray-500 mt-1">Preset-driven; adjust via kit selection.</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card className="bg-gradient-to-r from-blue-50 to-purple-50">
-        <CardContent className="pt-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm">Code: <span className="font-mono font-semibold text-blue-600">{kitCode.code}</span></p>
-              <p className="text-sm">Type: <span className="font-semibold capitalize">{kitCode.kit_type}</span></p>
-            </div>
-            <div className="text-right">
-              <p className="text-sm text-gray-600">Remaining</p>
-              <p className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {kitCode.max_generations - kitCode.used_count}
-              </p>
-            </div>
+            <label className="text-sm font-medium block mb-2">Preview style</label>
+            <div className="text-sm text-gray-700">White background, black thread</div>
           </div>
         </CardContent>
       </Card>
