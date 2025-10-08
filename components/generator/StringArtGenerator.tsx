@@ -158,8 +158,22 @@ export default function StringArtGenerator({
 
   // Main generation algorithm
   const generateStringArt = useCallback(async () => {
-    if (!image || !resultCanvasRef.current || !processCanvasRef.current) return;
+    console.log('generateStringArt called', { 
+      image: !!image, 
+      resultCanvasRef: !!resultCanvasRef.current, 
+      processCanvasRef: !!processCanvasRef.current 
+    });
     
+    if (!image || !resultCanvasRef.current || !processCanvasRef.current) {
+      console.log('Missing requirements:', { 
+        image: !!image, 
+        resultCanvasRef: !!resultCanvasRef.current, 
+        processCanvasRef: !!processCanvasRef.current 
+      });
+      return;
+    }
+    
+    console.log('Starting generation...');
     setIsGenerating(true);
     setProgress(0);
     setLines([]);
@@ -445,7 +459,10 @@ export default function StringArtGenerator({
                 <p className="text-gray-500 mb-4">Pattern will appear here</p>
                 {image && (
                   <Button 
-                    onClick={generateStringArt} 
+                    onClick={() => {
+                      console.log('Generate button clicked');
+                      generateStringArt();
+                    }} 
                     disabled={isGenerating || disabled}
                     size="lg"
                   >
