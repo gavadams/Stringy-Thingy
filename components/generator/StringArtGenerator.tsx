@@ -230,7 +230,74 @@ export default function StringArtGenerator({
     }
   }, []);
 
-  // Main generation algorithm with proper error matrix approach
+  // Simple line scoring using Bresenham algorithm
+  const calculateLineScoreSimple = useCallback((x0: number, y0: number, x1: number, y1: number, errorMatrix: Float32Array, width: number): number => {
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    
+    let x = x0;
+    let y = y0;
+    let totalError = 0;
+    let pixelCount = 0;
+    
+    while (true) {
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = y * width + x;
+        totalError += errorMatrix[idx];
+        pixelCount++;
+      }
+      
+      if (x === x1 && y === y1) break;
+      
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+    
+    return pixelCount > 0 ? totalError : 0;
+  }, []);
+
+  // Reduce error along a line
+  const reduceErrorAlongLine = useCallback((x0: number, y0: number, x1: number, y1: number, errorMatrix: Float32Array, width: number, lineWeight: number) => {
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+    
+    let x = x0;
+    let y = y0;
+    
+    while (true) {
+      if (x >= 0 && x < width && y >= 0 && y < width) {
+        const idx = y * width + x;
+        errorMatrix[idx] = Math.max(0, errorMatrix[idx] - lineWeight);
+      }
+      
+      if (x === x1 && y === y1) break;
+      
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }, []);
+
+  // Simplified but correct string art algorithm
   const generateStringArt = useCallback(async () => {
     if (!image || !resultCanvasRef.current) return;
     
@@ -254,10 +321,6 @@ export default function StringArtGenerator({
       const generatedPins = generatePins(settings.pegs, settings.shape);
       setPins(generatedPins);
       
-      // Pre-calculate all lines (optimization from Go version)
-      const minDistance = Math.max(5, Math.floor(settings.pegs / 20)); // Skip pins that are too close
-      const lineCache = precalculateLines(generatedPins, minDistance);
-      
       // Initialize result canvas
       const resultCanvas = resultCanvasRef.current;
       resultCanvas.width = 400;
@@ -272,12 +335,16 @@ export default function StringArtGenerator({
       ctx.lineWidth = settings.lineWidth;
       ctx.globalAlpha = settings.lineOpacity;
       
-      // Create error matrix (255 - image) - this is the key!
+      // Create simple error matrix - dark areas need more lines
       const errorMatrix = new Float32Array(400 * 400);
-      for (let i = 0; i < 400 * 400; i++) {
-        const pixelIndex = i * 4;
-        const gray = imageData[pixelIndex]; // R channel (grayscale)
-        errorMatrix[i] = 255 - gray; // Inverted image - higher values = more needed
+      for (let y = 0; y < 400; y++) {
+        for (let x = 0; x < 400; x++) {
+          const pixelIndex = (y * 400 + x) * 4;
+          const gray = imageData[pixelIndex]; // R channel (grayscale)
+          const errorIndex = y * 400 + x;
+          // Dark pixels (low gray values) = high error (need more lines)
+          errorMatrix[errorIndex] = 255 - gray;
+        }
       }
       
       const generatedLines: Line[] = [];
@@ -285,74 +352,56 @@ export default function StringArtGenerator({
       const maxLines = Math.min(settings.maxLines, settings.pegs * 15);
       setTotalLines(maxLines);
       
-      // Track recently used pins to avoid loops (from Go version)
-      const lastPins: number[] = [];
-      const maxLastPins = Math.min(20, Math.floor(settings.pegs / 10));
-      
-      // Progressive generation with batching
-      const batchSize = 5;
+      // Simple line generation
+      const batchSize = 10;
       let lineCount = 0;
       
       for (let i = 0; i < maxLines; i++) {
-        let bestError = -1;
+        let bestScore = -1;
         let bestPin = 0;
         
-        // Find best next pin using cached lines and error matrix
-        for (let offset = minDistance; offset < settings.pegs - minDistance; offset++) {
-          const testPin = (currentPin + offset) % settings.pegs;
+        // Find the best next pin by testing all other pins
+        for (let j = 0; j < settings.pegs; j++) {
+          if (j === currentPin) continue;
           
-          // Skip if recently used (prevents loops)
-          if (lastPins.includes(testPin)) continue;
+          // Calculate how much this line would help (sum error along line)
+          const score = calculateLineScoreSimple(
+            generatedPins[currentPin].x,
+            generatedPins[currentPin].y,
+            generatedPins[j].x,
+            generatedPins[j].y,
+            errorMatrix,
+            400
+          );
           
-          const cacheKey = `${currentPin}-${testPin}`;
-          const lineData = lineCache[cacheKey];
-          
-          if (lineData) {
-            // Calculate line error using cached coordinates
-            const lineError = calculateLineErrorFromCache(
-              lineData.xs,
-              lineData.ys,
-              errorMatrix,
-              400
-            );
-            
-            if (lineError > bestError) {
-              bestError = lineError;
-              bestPin = testPin;
-            }
+          if (score > bestScore) {
+            bestScore = score;
+            bestPin = j;
           }
         }
         
-        // Draw line with proper styling
+        // Draw the line
         ctx.beginPath();
         ctx.moveTo(generatedPins[currentPin].x, generatedPins[currentPin].y);
         ctx.lineTo(generatedPins[bestPin].x, generatedPins[bestPin].y);
         ctx.stroke();
         
-        // Update error matrix using cached line data
-        const cacheKey = `${currentPin}-${bestPin}`;
-        const lineData = lineCache[cacheKey];
-        if (lineData) {
-          updateErrorMatrixFromCache(
-            lineData.xs,
-            lineData.ys,
-            errorMatrix,
-            400,
-            settings.lineWidth * 2
-          );
-        }
-        
-        // Track recently used pins
-        lastPins.push(bestPin);
-        if (lastPins.length > maxLastPins) {
-          lastPins.shift();
-        }
+        // Reduce error where line was drawn
+        reduceErrorAlongLine(
+          generatedPins[currentPin].x,
+          generatedPins[currentPin].y,
+          generatedPins[bestPin].x,
+          generatedPins[bestPin].y,
+          errorMatrix,
+          400,
+          20 // Line weight
+        );
         
         generatedLines.push({ from: currentPin, to: bestPin });
         currentPin = bestPin;
         lineCount++;
         
-        // Update progress every batch
+        // Update progress
         if (lineCount % batchSize === 0) {
           setProgress((lineCount / maxLines) * 100);
           setCurrentLine(lineCount);
@@ -385,7 +434,7 @@ export default function StringArtGenerator({
     } finally {
       setIsGenerating(false);
     }
-  }, [image, settings, processImageData, generatePins, precalculateLines, linspace, calculateLineErrorFromCache, updateErrorMatrixFromCache, onComplete]);
+  }, [image, settings, processImageData, generatePins, calculateLineScoreSimple, reduceErrorAlongLine, onComplete]);
 
 
   // Download functions
