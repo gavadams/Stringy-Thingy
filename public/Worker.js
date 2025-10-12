@@ -1,3 +1,13 @@
+w.postMessage({
+  cmd: 'generate',
+  imageBuffer: buf,
+  imageType: image.type || 'image/png',
+  pins: config.pins,
+  maxLines: config.maxLines,
+  width: img.width,
+  height: img.height,
+}, [buf]);
+
 self.onmessage = async (event) => {
   const { imageBuffer, config } = event.data;
   if (!imageBuffer) {
@@ -20,3 +30,11 @@ self.onmessage = async (event) => {
 
   self.postMessage({ type: 'done', ...fakeResult });
 };
+
+console.log('Sending to worker:', {
+  cmd: 'generate',
+  imageBuffer: buf?.byteLength,
+  imageType: image.type,
+  pins: config.pins,
+  maxLines: config.maxLines,
+});
