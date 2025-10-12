@@ -235,8 +235,8 @@ export default function StringArtGenerator({
       processCtx.drawImage(img, sx, sy, sw, sh);
       processCtx.restore();
       
-      let imageData = processCtx.getImageData(0, 0, SIZE, SIZE);
-      let pixels = imageData.data;
+      const imageData = processCtx.getImageData(0, 0, SIZE, SIZE);
+      const pixels = imageData.data;
       
       // Convert to grayscale with proper weighting
       for (let i = 0; i < pixels.length; i += 4) {
