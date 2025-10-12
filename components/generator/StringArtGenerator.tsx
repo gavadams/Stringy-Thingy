@@ -40,14 +40,6 @@ interface Line {
   to: number;
 }
 
-interface Settings {
-  pins: number;
-  maxStrings: number;
-  minDistance: number;
-  lineAlpha: number;
-  lineRemoval: number;
-}
-
 export default function StringArtGenerator({
   kitCode,
   onComplete,
@@ -66,7 +58,7 @@ export default function StringArtGenerator({
   const [generatedLines, setGeneratedLines] = useState<Line[]>([]);
   const [pins, setPins] = useState<Point[]>([]);
   
-  const [settings, setSettings] = useState<Settings>({
+  const [settings, setSettings] = useState({
     pins: kitCode.pegs,
     maxStrings: kitCode.max_lines,
     minDistance: Math.max(25, Math.floor(kitCode.pegs / 8)),
@@ -334,7 +326,13 @@ export default function StringArtGenerator({
       
       onComplete({
         pattern: dataUrl,
-        settings: settings,
+        settings: {
+          pins: settings.pins,
+          maxStrings: settings.maxStrings,
+          minDistance: settings.minDistance,
+          lineAlpha: settings.lineAlpha,
+          lineRemoval: settings.lineRemoval
+        },
         lines: lines
       });
       
