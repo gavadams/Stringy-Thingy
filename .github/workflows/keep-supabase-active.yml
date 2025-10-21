@@ -3,7 +3,7 @@ name: Keep Supabase Active
 on:
   schedule:
     # Runs every 3 days at 2 AM UTC
-    - cron: '0 2 * * *'
+    - cron: '0 2 */3 * *'
   workflow_dispatch: # Allows manual trigger
 
 jobs:
@@ -13,7 +13,7 @@ jobs:
       - name: Ping Supabase Database
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: |
           TIMESTAMP=$(date -u +%Y-%m-%dT%H:%M:%SZ)
           
